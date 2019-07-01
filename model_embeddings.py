@@ -21,3 +21,6 @@ class ModelEmbeddings(nn.Module):
         
         #if want to freeze pretrained embeddings
         #self.embedding.weight.requires_grad = False
+    
+    def forward(self, inputs):
+        return self.embedding(inputs)
