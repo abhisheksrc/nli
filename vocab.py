@@ -3,7 +3,6 @@ from collections import Counter
 from itertools import chain
 import torch
 
-from utils import tagEOS
 from utils import padSents
 
 class Vocab(object):
@@ -57,19 +56,14 @@ class Vocab(object):
     def indices2words(self, w_ids):
         return [self.id2word[w_id] for w_id in w_ids]
 
-    def sents2Tensor(self, sents, device, test=False):
+    def sents2Tensor(self, sents, device):
         """
-        @param sents (List[List[str]]) if not test: list of variable sent lens
-                else sents (List[str]) 
-        pad to standardize sent lens according to max_sent_len
-        convert words to indices and then form a tensor for List[List[int]]
+        Convert list of sent to tensor by padding required sents
+        @param sents (List[List[str]]): batch of sents in reverse sorted order
         @return torch.t(out_tensor) (torch.tensor (max_sent_len, batch_size))
         """
-        if not test:
-            sents_padded = padSents(sents, self.pad_tok)
-            word_ids = self.words2indices(sents_padded)
-        else:
-            word_ids = [self.words2indices(sents)]
+        sents_padded = padSents(sents, self.pad_tok)
+        word_ids = self.words2indices(sents_padded)
         out_tensor = torch.tensor(word_ids, dtype=torch.long, device=device)
         return torch.t(out_tensor) #transpose since batch_first=False in our model
 

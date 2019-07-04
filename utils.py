@@ -113,50 +113,11 @@ def batch_iter(data, batch_size, shuffle=True):
 
         yield prems, hyps
 
-def readTest(file_path):
-    """
-    read file containing sentences delineated by a '\n' to construct a List of words
-    @param file_path (str): path to file containing test data
-    @return data (List[str]): list of words
-    """
-    data = []
-    for line in open(file_path):
-        word = line.strip().split(' ')[0]
-        data.append(word)
-
-    return data
-
-def readTestSent(file_path):
-    """
-    read file containing sentences delineated by a '\n' to construct a List of sents
-    @param file_path (str): path to file containing test data
-    @return data (List[List[str]]): list of sents
-    """
-    data = []
-    for line in open(file_path):
-        sent = line.strip().split(' ')
-        data.append(sent)
-
-    return data
-
-def tagEOS(sents, eos_tok):
-    """
-    @param sents (List[List[str]]) : rev sorted sents (max_len)
-    @param eos_tok (str) : EOS Token
-    @return sents (List[List[str]]) : sents with EOS
-    """
-    temp = sents
-    sents = []
-    for sent in temp:
-        sent.append(eos_tok)
-        sents.append(sent)
-    return sents
-
 def padSents(sents, pad_tok):
     """
-    @param sents (List[List[str]]) : rev sorted sents (max_len) with added EOS
-    @param pad_tok (str) : Pad Token
-    @return sents_padded (List[List[str]]) : sents with padding according to max_sent_len
+    @param sents (List[List[str]]): rev sorted sents (max_len)
+    @param pad_tok (str): Pad Token
+    @return sents_padded (List[List[str]]): sents with padding according to max_sent_len
     """
     sents_padded = []
     max_len = len(sents[0])
@@ -169,7 +130,7 @@ def padSents(sents, pad_tok):
 
 def save(model_dict, file_path):
     """
-    @param model_dict (Dict) : model.state_dict()
+    @param model_dict (Dict): model.state_dict()
     @param file_path (str)
     """
     torch.save(model_dict, file_path)
