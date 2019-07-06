@@ -11,14 +11,14 @@ Options:
     --train-file=<file>                 train_corpus [default: ../data/snli_train.txt]
     --dev-file=<file>                   dev_corpus [default: ../data/snli_dev.txt]
     --word-embeddings=<file>            word_vecs [default: ../data/wiki-news-300d-1M.txt]
-    --max-epoch=<int>                   max epoch [default: 30]
+    --max-epoch=<int>                   max epoch [default: 15]
     --batch-size=<int>                  batch size [default: 16]
     --embed-size=<int>                  word embed_dim [default: 256]
-    --hidden-size=<int>                 hidden dim [default: 512]
+    --hidden-size=<int>                 hidden dim [default: 256]
     --num-layers=<int>                  number of layers [default: 2]
     --clip-grad=<float>                 grad clip [default: 5.0]
-    --lr=<float>                        learning rate [default: 0.05]
-    --dropout=<float>                   dropout rate [default: 0.5]
+    --lr=<float>                        learning rate [default: 0.001]
+    --dropout=<float>                   dropout rate [default: 0.3]
     --save-model-to=<file>              save trained model [default: model.pt]
 """
 from __future__ import division
@@ -63,10 +63,8 @@ def train_model(args, vocab, embeddings, train_data, label):
         for prems, hyps in batch_iter(train_data, batch_size, shuffle=True):
             optimizer.zero_grad()
             
-            batch_size = len(prems)
-        
             batch_loss = model(prems, hyps).sum()
-            loss = -batch_loss / batch_size
+            loss = -batch_loss / len(prems)
 
             loss.backward()
 
@@ -76,7 +74,7 @@ def train_model(args, vocab, embeddings, train_data, label):
             batch_losses_val += batch_loss.item()
 
         epoch_loss = batch_losses_val / len(train_data)
-        print('progress: loss= %.4f' % (epoch_loss))
+        print('progress: loss= %.2f' % (epoch_loss))
 
     save(model.state_dict(), model_save_path)
 
@@ -91,7 +89,7 @@ def train(args):
 
     #construct set of train sent pairs for each hyp class
     entail_pairs, neutral_pais, contradict_pairs = extractPairCorpus(args['--train-file'])
-
+    
     #train LG model for each hyp class
     train_model(args, vocab, embeddings=None, train_data=entail_pairs, label='entailment')
 
