@@ -113,17 +113,18 @@ def batch_iter(data, batch_size, shuffle=True):
 
         yield prems, hyps
 
-def padSents(sents, pad_tok):
+def padSents(sents, pad_idx):
     """
-    @param sents (List[List[str]]): rev sorted sents (max_len)
-    @param pad_tok (str): Pad Token
-    @return sents_padded (List[List[str]]): sents with padding according to max_sent_len
+    @param sents (List[List[int]]):
+    @param pad_idx (int): Pad ID
+    @return sents_padded (List[List[int]]): sents with padding according to max_sent_len
     """
+    max_len = 0
     sents_padded = []
-    max_len = len(sents[0])
+    for sent in sents: max_len = max(max_len, len(sent))
     for sent in sents:
         sent_padded = sent
-        sent_padded.extend([pad_tok for i in range(max_len - len(sent))])
+        sent_padded.extend([pad_idx for i in range(max_len - len(sent))])
         sents_padded.append(sent_padded)
 
     return sents_padded

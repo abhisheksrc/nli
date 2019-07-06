@@ -11,16 +11,17 @@ Options:
     --train-file=<file>                 train_corpus [default: ../data/snli_train.txt]
     --dev-file=<file>                   dev_corpus [default: ../data/snli_dev.txt]
     --word-embeddings=<file>            word_vecs [default: ../data/wiki-news-300d-1M.txt]
-    --max-epoch=<int>                   max epoch [default: 10]
+    --max-epoch=<int>                   max epoch [default: 30]
     --batch-size=<int>                  batch size [default: 16]
-    --embed-size=<int>                  word embed_dim [default: 300]
+    --embed-size=<int>                  word embed_dim [default: 256]
     --hidden-size=<int>                 hidden dim [default: 512]
     --num-layers=<int>                  number of layers [default: 2]
     --clip-grad=<float>                 grad clip [default: 5.0]
     --lr=<float>                        learning rate [default: 0.05]
     --dropout=<float>                   dropout rate [default: 0.5]
-    --save-model=<file>                 save trained model [default: model.pt]
+    --save-model-to=<file>              save trained model [default: model.pt]
 """
+from __future__ import division
 
 import torch
 
@@ -30,6 +31,7 @@ from utils import readCorpus
 from utils import loadEmbeddings
 from utils import extractPairCorpus
 from utils import batch_iter
+from utils import save
 from vocab import Vocab
 
 from neural_model import NeuralModel
@@ -43,16 +45,40 @@ def train_model(args, vocab, embeddings, train_data, label):
     @param args (Dict): command line args
     @param label (str): hyp label    
     """
-    model = NeuralModel(vocab, embeddings,
+    batch_size = int(args['--batch-size'])
+    clip_grad = float(args['--clip-grad'])
+    model_save_path = args['--save-model-to']
+
+    model = NeuralModel(vocab, int(args['--embed-size']), embeddings,
                         hidden_size=int(args['--hidden-size']),
                         num_layers=int(args['--num-layers']),
-                        dropout_rate=float(args['--dropout']))
+                        dropout_rate=float(args['--dropout']), device=device)
     model = model.to(device)
+
+    optimizer = torch.optim.Adam(model.parameters(), lr=float(args['--lr']))
 
     for epoch in range(int(args['--max-epoch'])):
         epoch_loss = 0.0
-        for prems, hyps in batch_iter(train_data, batch_size=int(args['--batch-size']), shuffle=True):
-            #TODO
+        batch_losses_val = 0.0
+        for prems, hyps in batch_iter(train_data, batch_size, shuffle=True):
+            optimizer.zero_grad()
+            
+            batch_size = len(prems)
+        
+            batch_loss = model(prems, hyps).sum()
+            loss = -batch_loss / batch_size
+
+            loss.backward()
+
+            grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), clip_grad)
+            optimizer.step()
+            
+            batch_losses_val += batch_loss.item()
+
+        epoch_loss = batch_losses_val / len(train_data)
+        print('progress: loss= %.4f' % (epoch_loss))
+
+    save(model.state_dict(), model_save_path)
 
 def train(args):
     """
@@ -61,13 +87,13 @@ def train(args):
     """
     train_sents = readCorpus(args['--train-file'])
     vocab = Vocab.build(train_sents)
-    embeddings = loadEmbeddings(vocab, args['--word-embeddings'], device)
+    #embeddings = loadEmbeddings(vocab, args['--word-embeddings'], device)
 
     #construct set of train sent pairs for each hyp class
     entail_pairs, neutral_pais, contradict_pairs = extractPairCorpus(args['--train-file'])
 
     #train LG model for each hyp class
-    train_model(args, vocab, embeddings, train_data=entail_pairs, label='entailment')
+    train_model(args, vocab, embeddings=None, train_data=entail_pairs, label='entailment')
 
 if __name__ == "__main__":
     args = docopt(__doc__)

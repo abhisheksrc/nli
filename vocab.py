@@ -62,9 +62,9 @@ class Vocab(object):
         @param sents (List[List[str]]): batch of sents in reverse sorted order
         @return torch.t(out_tensor) (torch.tensor (max_sent_len, batch_size))
         """
-        sents_padded = padSents(sents, self.pad_tok)
-        word_ids = self.words2indices(sents_padded)
-        out_tensor = torch.tensor(word_ids, dtype=torch.long, device=device)
+        word_ids = self.words2indices(sents)
+        sents_padded = padSents(word_ids, self['<pad>'])
+        out_tensor = torch.tensor(sents_padded, dtype=torch.long, device=device)
         return torch.t(out_tensor) #transpose since batch_first=False in our model
 
     @staticmethod
