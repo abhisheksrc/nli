@@ -67,7 +67,7 @@ class NeuralModel(nn.Module):
         """
         apply the encoder on the premises to obtain encoder hidden states
         @param prems (torch.tensor(max_prem_len, batch))
-        @param prem_lens (List[int]): list of actual lengths of the prems
+        @param prems_lens (List[int]): list of actual lengths of the prems
         @return enc_hiddens (torch.tensor(max_prem_len, batch, hidden*2)): tensor of seq of hidden outs
         @return dec_init_state (tuple(torch.tensor(num-layers, batch, hidden*2), torch.tensor(num-layers, batch, hidden*2))): encoders final hidden state and cell i.e. decoders initial hidden state and cell
         """

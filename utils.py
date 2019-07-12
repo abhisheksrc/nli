@@ -6,22 +6,20 @@ import math
 
 import nltk
 
-
-
 def readLine(line):
     """
-    read line of format label\tsentence1\tsentence2\n
+    read line of format label\tprem\thyp\n
     @param line (str)
-    @return label, sent1, sent2 (tuple(str, List[str], List[str]))
+    @return label, prem, hyp (tuple(str, List[str], List[str]))
     """
     line = line.split('\n')[0]
     line = line.split('\t')
     
     label = line[0]
-    sent1 = nltk.word_tokenize(line[1])
-    sent2 = nltk.word_tokenize(line[2])
+    prem = nltk.word_tokenize(line[1])
+    hyp = nltk.word_tokenize(line[2])
 
-    return label, sent1, sent2
+    return label, prem, hyp
 
 def readCorpus(file_path):
     """
@@ -31,10 +29,10 @@ def readCorpus(file_path):
     """
     data = []
     for line in open(file_path, 'r'):
-        label, sent1, sent2 = readLine(line)
+        label, prem, hyp = readLine(line)
 
-        data.append(sent1)
-        data.append(sent2)
+        data.append(prem)
+        data.append(hyp)
         
     return data
 
@@ -70,28 +68,43 @@ def loadEmbeddings(vocab, embedding_file, device):
 
 def extractPairCorpus(file_path):
     """
-    build list of (hyp, prem) for each label
+    build list of (prem, hyp) for each label
     @param file_path (str): /path/corpus
     @return entail_pairs, neutral_pairs, contradict_pairs (List[tuple(List[str])])
     """
     entail_pairs, neutral_pairs, contradict_pairs = [], [], []
     for line in open(file_path, 'r'):
-        label, sent1, sent2 = readLine(line)
-        sent2 = ['<start>'] + sent2 + ['<eos>']
+        label, prem, hyp = readLine(line)
+        hyp = ['<start>'] + hyp + ['<eos>']
         if label == 'entailment':
-            entail_pairs.append((sent1, sent2))
+            entail_pairs.append((prem, hyp))
         elif label == 'neutral':
-            neutral_pairs.append((sent1, sent2))
+            neutral_pairs.append((prem, hyp))
         else:
-            contradict_pairs.append((sent1, sent2))
+            contradict_pairs.append((prem, hyp))
     return entail_pairs, neutral_pairs, contradict_pairs
 
-def batch_iter(data, batch_size, shuffle=True):
+def extractSentLabel(file_path):
     """
-    yield batches of premise and hypothesis reverse sorted by length
-    @param data (List[tuple]): list of tuples (premise, hypothesis)
+    build list of (prem, hyp)
+    @param file_path (str): /path/corpus
+    @return (prems, hyps, labels) (tuple(List[str]))
+    """
+    prems, hyps, labels = [], [], []
+    for line in open(file_path, 'r'):
+        label, prem, hyp = readLine(line)
+        prems.append(prem)
+        hyps.append(hyp)
+        labels.append(label)
+    return (prems, hyps, labels)
+
+def batch_iter(data, batch_size, shuffle=True, label=False):
+    """
+    yield batches of premise and hypothesis and label(optional) reverse sorted by length
+    @param data (List[tuple]): list of tuples (premise, hypothesis, label(optional))
     @param batch_size (int)
     @param shuffle (boolean): option randomly shuffle data
+    @param label (boolean): if optional label also present in data tuples
     """
     batches = int(math.ceil(len(data) / batch_size))
     index_array = list(range(len(data)))
@@ -106,8 +119,11 @@ def batch_iter(data, batch_size, shuffle=True):
         batch = sorted(batch, key=lambda b: len(b[0]), reverse=True)
         prems = [b[0] for b in batch]
         hyps = [b[1] for b in batch]
-
-        yield prems, hyps
+        if not label:
+            yield prems, hyps
+        else:
+            labels = [b[2] for b in batch]
+            yield prems, hyps, labels
 
 def padSents(sents, pad_idx):
     """

@@ -1,6 +1,6 @@
 #!/usr/bin/python
 """
-run.py: run script for NLI Model
+run.py: run script for NLI LG Model
 Abhishek Sharma <sharm271@cs.purdue.edu>
 
 Usage:
@@ -42,11 +42,13 @@ from neural_model import NeuralModel
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-def train_model(args, vocab, embeddings, train_data, label):
+def train_lg_model(args, vocab, embeddings, train_data, label):
     """
     train LG model on the specific label
-    @param train_data (List[tuple]): list of sent pairs containing premise and hypothesis
     @param args (Dict): command line args
+    @param vocab (Vocab): Vocab class obj
+    @param embeddings (torch.tensor(len(vocab), embed_dim)): pretrained word embeddings
+    @param train_data (List[tuple]): list of sent pairs containing premise and hypothesis
     @param label (str): hyp label    
     """
     train_batch_size = int(args['--batch-size'])
@@ -67,8 +69,6 @@ def train_model(args, vocab, embeddings, train_data, label):
     patience = cum_loss = cum_hyp_words = cum_examples = report_examples = 0
 
     for epoch in range(int(args['--max-epoch'])):
-        epoch_loss = 0.0
-        batch_losses_val = 0.0
         for prems, hyps in batch_iter(train_data, batch_size=train_batch_size, shuffle=True):
             train_iter += 1
             hyp_words_num_to_predict = sum(len(hyp[1:]) for hyp in hyps)
@@ -115,7 +115,7 @@ def train(args):
     entail_pairs, neutral_pais, contradict_pairs = extractPairCorpus(args['--train-file'])
     
     #train LG model for each hyp class
-    train_model(args, vocab, embeddings, train_data=entail_pairs, label='entailment')
+    train_lg_model(args, vocab, embeddings, train_data=entail_pairs, label='entailment')
 
 if __name__ == "__main__":
     args = docopt(__doc__)
