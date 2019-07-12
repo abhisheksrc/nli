@@ -31,7 +31,7 @@ class NeuralModel(nn.Module):
 
         self.vocab_projection = nn.Linear(self.hidden_size*2, len(self.vocab), bias=False)
 
-        self.encoder = nn.LSTM(input_size=self.embed_size, hidden_size=self.hidden_size, num_layers=self.num_layers, bias=True, dropout=self.dropout_rate, bidirectional=True)
+        self.encoder = nn.LSTM(input_size=self.embed_size, hidden_size=self.hidden_size, num_layers=self.num_layers, bias=True, bidirectional=True)
 
         self.decoder = nn.LSTMCell(input_size=self.embed_size, hidden_size=self.hidden_size*2)
 
@@ -53,7 +53,6 @@ class NeuralModel(nn.Module):
         h_d_0, c_d_0 = dec_init_state[0], dec_init_state[1]
         dec_init_state = (h_d_0[-1], c_d_0[-1])
         hyps_predicted = self.decode(hyps_padded, dec_init_state)
-
         P = F.log_softmax(hyps_predicted, dim=-1)        
         
         #create mask to zero out probability for the pad tokens

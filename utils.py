@@ -42,7 +42,6 @@ def loadEmbeddings(vocab, embedding_file, device):
     """
     construct vector for word embeddings
     loads embedding from embedding_file
-    also adds new words to the vocab
     @param vocab (Vocab): obj from Vocab class
     @param embedding_file (str): /path/file/containing_embedding
     @return embedding_weights (torch.tensor (len(vocab), word_dim))
@@ -60,9 +59,6 @@ def loadEmbeddings(vocab, embedding_file, device):
     for i, word in enumerate(words):
         if word in vocab.word2id:
             weights[vocab[word]] = vecs[i]
-        else:
-            wid=vocab.add(word)
-            weights.append(vecs[i])
 
     #check if any word embedding is still None
     for i in range(init_vocab):
