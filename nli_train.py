@@ -27,6 +27,7 @@ import time
 import math
 
 import torch
+import torch.nn.functional as F
 
 from docopt import docopt
 
@@ -35,7 +36,10 @@ from utils import loadEmbeddings
 from utils import extractPairCorpus
 from utils import batch_iter
 from utils import save
+from utils import labels_to_indices
+from utils import extractSentLabel
 from vocab import Vocab
+from nli_model import NLIModel
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -49,17 +53,16 @@ def train(args):
     embeddings = loadEmbeddings(vocab, args['--word-embeddings'], device)
 
     #train NLI prediction model
-    (prems, hyps, labels) = extractSentLabel(args['--train-file'])
-    train_data = (prems, hyps, labels)
+    train_data = extractSentLabel(args['--train-file'])
 
     train_batch_size = int(args['--batch-size'])
     log_every = int(args['--log-every'])
     model_save_path = args['--save-model-to']
 
-    model = NeuralModel(vocab, int(args['--embed-size']), embeddings,
-                        hidden_size=int(args['--hidden-size']),
-                        num_layers=int(args['--num-layers']),
-                        dropout_rate=float(args['--dropout']), device=device)
+    model = NLIModel(vocab, int(args['--embed-size']), embeddings,
+                    hidden_size=int(args['--hidden-size']),
+                    num_layers=int(args['--num-layers']),
+                    dropout_rate=float(args['--dropout']), device=device)
     model = model.to(device)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=float(args['--lr']))
@@ -75,7 +78,16 @@ def train(args):
             optimizer.zero_grad()
             
             batch_size = len(prems)
-            batch_loss = -model(prems, hyps).sum()
+            labels_pred = model(prems, hyps)
+
+            P = F.log_softmax(labels_pred, dim=-1)
+            labels_indices = labels_to_indices(labels)
+            labels_indices.to(device) 
+            cross_entropy_loss = torch.gather(P, dim=-1,
+                index=labels_indices.unsqueeze(-1)).squeeze(-1)
+            total_entropy_loss = cross_entropy_loss.sum(dim=0)
+
+            batch_loss = -total_entropy_loss.sum()
             loss = batch_loss / batch_size
 
             loss.backward()

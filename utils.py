@@ -88,15 +88,13 @@ def extractSentLabel(file_path):
     """
     build list of (prem, hyp)
     @param file_path (str): /path/corpus
-    @return (prems, hyps, labels) (tuple(List[str]))
+    @return (prems, hyps, labels) (List[tuple(prems, hyps, labels)])
     """
-    prems, hyps, labels = [], [], []
+    train_data = []
     for line in open(file_path, 'r'):
         label, prem, hyp = readLine(line)
-        prems.append(prem)
-        hyps.append(hyp)
-        labels.append(label)
-    return (prems, hyps, labels)
+        train_data.append((prem, hyp, label))
+    return train_data
 
 def batch_iter(data, batch_size, shuffle=True, label=False):
     """
@@ -147,3 +145,35 @@ def save(model_dict, file_path):
     @param file_path (str)
     """
     torch.save(model_dict, file_path)
+
+def sortHyps(hyps):
+    """
+    reverse sort the hyps, criteria: length
+    @param hyps (List[List[str]])
+    @return hyps_sorted (List[List[str]])
+    @return index_map (Dict): mapping hyps_indices_sorted->hyps_indices_orig
+    """
+    hyps_indices = []
+    for i, hyp in enumerate(hyps):
+        hyps_indices.append((hyp, i))
+    hyps_indices.sort(key=lambda (hyp, index): len(hyp), reverse=True)
+
+    index_map = {}
+    hyps_sorted = []
+    for i, (hyp, index) in enumerate(hyps_indices):
+        index_map[i] = index
+        hyps_sorted.append(hyp)
+
+    return hyps_sorted, index_map
+
+def labels_to_indices(labels):
+    """
+    map NLI labels to indices and return them as Tensor
+    @param labels (List[str])
+    @return labels_indices (torch.tensor(batch,))
+    """
+    labels_map = {'entailment' : 0,
+                    'neutral': 1,
+                    'contradiction': 2}
+    labels_indices = torch.tensor([labels_map[label] for label in labels], dtype=torch.long)
+    return labels_indices

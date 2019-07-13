@@ -4,6 +4,7 @@ import torch.nn as nn
 from torch.nn.utils import rnn
 import torch.nn.functional as F
 
+from utils import sortHyps
 from model_embeddings import ModelEmbeddings
 
 class NLIModel(nn.Module):
@@ -33,7 +34,7 @@ class NLIModel(nn.Module):
         self.encoder = nn.LSTM(input_size=self.embed_size, hidden_size=self.hidden_size, num_layers=self.num_layers, bias=True, bidirectional=True)
 
         #classifier for 3 possible labels
-        self.classifier = nn.Linear(in_features=self.hidden_size*2, out_features=3)
+        self.classifier = nn.Linear(in_features=self.hidden_size*4, out_features=3)
 
     def forward(self, prems, hyps):
         """
@@ -49,36 +50,54 @@ class NLIModel(nn.Module):
 
         prems_enc_outs = self.encode(prems_padded, prems_lengths)
 
-        #reverse sort hyps and save original indices
-        hyps_indices = []
-        for i, hyp in enumerate(hyps):
-            hyps_indices.append((hyp, i))
-        hyps_indices.sort(key=lambda (hyp, index): len(hyp), reverse=True)
-
-        index_map = {}
-        hyps_sorted = []
-        for i, (hyp, index) in enumerate(hyps_indices):
-            index_map[i] = index
-            hyps_sorted.append(hyp)
-
-        hyps_lengths = [len(hyp) for hyp in hyps_sorted]
+        #reverse sort hyps and save original lengths and index mapping:
+        #   map: indices_sorted -> indices_orig
+        hyps_lengths_orig = [len(hyp) for hyp in hyps]
+        hyps_sorted, index_map = sortHyps(hyps)
+        hyps_lengths_sorted = [len(hyp) for hyp in hyps_sorted]
         hyps_padded = self.vocab.sents2Tensor(hyps_sorted, device=self.device)
 
-        hyps_enc_outs = self.encode(hyps_padded, hyps_lengths)
+        hyps_enc_outs = self.encode(hyps_padded, hyps_lengths_sorted)
         hyps_enc_outs_seq_orig = [hyps_enc_outs[:, index_map[i], :].unsqueeze(dim=1) 
                                     for i in range(len(hyps))]
         hyps_enc_outs_orig = torch.cat(hyps_enc_outs_seq_orig, dim=1)
-        #TODO max pooling and classifier 
+
+        #max pooling and classifier
+        prems_encoding_final = self.maxPool(prems_enc_outs, prems_lengths)
+        hyps_encoding_final = self.maxPool(hyps_enc_outs_orig, hyps_lengths_orig)
+        
+        ins_classifier = torch.cat((prems_encoding_final, hyps_encoding_final), dim=-1)
+        
+        outs = self.classifier(ins_classifier)
+        return outs 
 
     def encode(self, sents, sents_lens):
         """
         apply the encoder on the sentences to obtain encoder hidden states
         @param prems (torch.tensor(max_sent_len, batch))
         @param sents_lens (List[int]): list of actual lengths of the sents
-        @return enc_hiddens (torch.tensor(max_sent_len, batch, hidden*2)): tensor of seq of hidden outs
+        @return enc_hiddens (torch.tensor(max_sent_len, batch, hidden*2)): 
+            tensor of seq of hidden outs
         """
         X = self.embeddings(sents)
         X = rnn.pack_padded_sequence(X, sents_lens)
         enc_hiddens, (h_n, c_n) = self.encoder(X)
         enc_hiddens, sents_lens_tensor = rnn.pad_packed_sequence(enc_hiddens)
         return enc_hiddens
+
+    def maxPool(self, encodings, lengths):
+        """
+        apply max pool to each encoding to extract the max element
+        @param encodings (torch.tensor(max_encoding_len, batch, hidden*2)):
+            the out sequence of encoder
+        @param lengths (List[int]): list of actual lengths of the encodings
+        @return outs_encoder_final (torch.tensor(batch, hidden*2)):
+            final out of the encoder
+        """
+        seq_max_list = []
+        for i, length in enumerate(lengths):
+            seq_i = encodings[:length, i, :]
+            seq_i_max, _ = seq_i.max(dim=0)
+            seq_i_max = torch.squeeze(seq_i_max, dim=0)
+            seq_max_list.append(seq_i_max)
+        return torch.stack(seq_max_list)
