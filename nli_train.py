@@ -17,7 +17,7 @@ Options:
     --embed-size=<int>                  word embed_dim [default: 300]
     --hidden-size=<int>                 hidden dim [default: 256]
     --num-layers=<int>                  number of layers [default: 1]
-    --lr=<float>                        learning rate [default: 0.0002]
+    --lr=<float>                        learning rate [default: 0.001]
     --dropout=<float>                   dropout rate [default: 0.1]
     --save-model-to=<file>              save trained model [default: nli_model.pt]
 """
@@ -82,12 +82,11 @@ def train(args):
 
             P = F.log_softmax(labels_pred, dim=-1)
             labels_indices = labels_to_indices(labels)
-            labels_indices.to(device) 
+            labels_indices = labels_indices.to(device) 
             cross_entropy_loss = torch.gather(P, dim=-1,
                 index=labels_indices.unsqueeze(-1)).squeeze(-1)
-            total_entropy_loss = cross_entropy_loss.sum(dim=0)
 
-            batch_loss = -total_entropy_loss.sum()
+            batch_loss = -cross_entropy_loss.sum()
             loss = batch_loss / batch_size
 
             loss.backward()
