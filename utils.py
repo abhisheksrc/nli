@@ -80,7 +80,7 @@ def extractPairCorpus(file_path):
             entail_pairs.append((prem, hyp))
         elif label == 'neutral':
             neutral_pairs.append((prem, hyp))
-        else:
+        elif label == 'contradiction':
             contradict_pairs.append((prem, hyp))
     return entail_pairs, neutral_pairs, contradict_pairs
 
@@ -93,7 +93,8 @@ def extractSentLabel(file_path):
     train_data = []
     for line in open(file_path, 'r'):
         label, prem, hyp = readLine(line)
-        train_data.append((prem, hyp, label))
+        if label != '-':
+            train_data.append((prem, hyp, label))
     return train_data
 
 def batch_iter(data, batch_size, shuffle=True, label=False):
@@ -141,6 +142,7 @@ def padSents(sents, pad_idx):
 
 def save(model_dict, file_path):
     """
+    Depricated: use neural model's save function
     @param model_dict (Dict): model.state_dict()
     @param file_path (str)
     """

@@ -11,6 +11,7 @@ Options:
     --train-file=<file>                 train_corpus [default: ../data/snli_train.txt]
     --dev-file=<file>                   dev_corpus [default: ../data/snli_dev.txt]
     --word-embeddings=<file>            word_vecs [default: ../data/wiki-news-300d-1M.txt]
+    --vocab-file=<file>                 vocab json [default: vocab.json]
     --max-epoch=<int>                   max epoch [default: 15]
     --batch-size=<int>                  batch size [default: 16]
     --log-every=<int>                   log every [default: 10]
@@ -108,7 +109,7 @@ def train(args):
     @param args (Dict): command line args
     """
     train_sents = readCorpus(args['--train-file'])
-    vocab = Vocab.build(train_sents)
+    vocab = Vocab.load(args['--vocab-file'])
     embeddings = loadEmbeddings(vocab, args['--word-embeddings'], device)
 
     #construct set of train sent pairs for each hyp class

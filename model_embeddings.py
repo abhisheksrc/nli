@@ -12,11 +12,13 @@ class ModelEmbeddings(nn.Module):
         """
         Init the embedding layer
         @param vocab (Vocab): vocab object
+        @param embed_size (int): embedding size
         @param embeddings (torch.tensor (len(vocab), word_dim)): pretrained embeddings
         """
         super(ModelEmbeddings, self).__init__()
         pad_idx = vocab.pad_id
-        self.embedding = nn.Embedding(len(vocab), embed_size, padding_idx=pad_idx)
+        self.embed_size = embed_size
+        self.embedding = nn.Embedding(len(vocab), self.embed_size, padding_idx=pad_idx)
         self.embedding.weight = nn.Parameter(embeddings)
         #if want to freeze pretrained embeddings
         #self.embedding.weight.requires_grad = False

@@ -10,13 +10,15 @@ Options:
     -h --help                           show this screen.
     --train-file=<file>                 train_corpus [default: ../data/snli_train.txt]
     --dev-file=<file>                   dev_corpus [default: ../data/snli_dev.txt]
+    --vocab-file=<file>                 vocab json [default: vocab.json]
     --word-embeddings=<file>            word_vecs [default: ../data/wiki-news-300d-1M.txt]
     --max-epoch=<int>                   max epoch [default: 15]
     --batch-size=<int>                  batch size [default: 32]
     --log-every=<int>                   log every [default: 10]
     --embed-size=<int>                  word embed_dim [default: 300]
-    --hidden-size=<int>                 hidden dim [default: 256]
-    --num-layers=<int>                  number of layers [default: 1]
+    --hidden-size=<int>                 hidden dim [default: 300]
+    --num-layers=<int>                  number of layers [default: 2]
+    --clip-grad=<float>                 grad clip [default: 5.0]
     --lr=<float>                        learning rate [default: 0.001]
     --dropout=<float>                   dropout rate [default: 0.1]
     --save-model-to=<file>              save trained model [default: nli_model.pt]
@@ -49,7 +51,8 @@ def train(args):
     @param args (Dict): command line args
     """
     train_sents = readCorpus(args['--train-file'])
-    vocab = Vocab.build(train_sents)
+    clip_grad = float(args['--clip-grad'])
+    vocab = Vocab.load(args['--vocab-file'])
     embeddings = loadEmbeddings(vocab, args['--word-embeddings'], device)
 
     #train NLI prediction model
@@ -91,7 +94,10 @@ def train(args):
 
             loss.backward()
 
+            grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), clip_grad)
             optimizer.step()
+            if epoch == 0 and train_iter < 5:
+                print('initial loss= %.2f' %(batch_loss.item()))
             
             batch_losses_val = batch_loss.item()
             report_loss += batch_losses_val
