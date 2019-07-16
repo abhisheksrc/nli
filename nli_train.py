@@ -5,11 +5,12 @@ Abhishek Sharma <sharm271@cs.purdue.edu>
 
 Usage:
     nli_train.py train [--train-file=<file> --dev-file=<file>] [--word-embeddings=<file>] [options]
-
+    nli_train.py test MODEL_PATH [--test-file=<file> --batch-size=<int>]
 Options:
     -h --help                           show this screen.
     --train-file=<file>                 train_corpus [default: ../data/snli_train.txt]
     --dev-file=<file>                   dev_corpus [default: ../data/snli_dev.txt]
+    --test-file=<file>                  test_corpus [default: ../data/snli_test.txt]
     --vocab-file=<file>                 vocab json [default: vocab.json]
     --word-embeddings=<file>            word_vecs [default: ../data/wiki-news-300d-1M.txt]
     --max-epoch=<int>                   max epoch [default: 15]
@@ -86,9 +87,8 @@ def evaluate(model, data, batch_size):
 def train(args):
     """
     train NLI model
-    @param args (Dict): command line args
+    @param args (dict): command line args
     """
-    train_sents = readCorpus(args['--train-file'])
     clip_grad = float(args['--clip-grad'])
     vocab = Vocab.load(args['--vocab-file'])
     embeddings = loadEmbeddings(vocab, args['--word-embeddings'], device)
@@ -177,7 +177,20 @@ def train(args):
         prev_dev_loss = dev_loss
         prev_dev_acc = dev_acc
 
+def test(args):
+    """
+    test NLI model
+    @param args (dict): command line args
+    """
+    test_data = extractSentLabel(args['--test-file'])
+    model = NLIModel.load(args['MODEL_PATH'])
+    model = model.to(device)
+    test_loss, test_acc = evaluate(model, test_data, batch_size=int(args['--batch-size']))
+    print('final test accuracy= %.2f' %(test_acc))
+
 if __name__ == "__main__":
     args = docopt(__doc__)
     if args['train']:
         train(args)
+    elif args['test']:
+        test(args)
