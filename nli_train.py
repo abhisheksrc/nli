@@ -13,8 +13,8 @@ Options:
     --vocab-file=<file>                 vocab json [default: vocab.json]
     --word-embeddings=<file>            word_vecs [default: ../data/wiki-news-300d-1M.txt]
     --max-epoch=<int>                   max epoch [default: 15]
+    --patience=<int>                    wait for how many epochs to exit training [default: 2]
     --batch-size=<int>                  batch size [default: 32]
-    --log-every=<int>                   log every [default: 10]
     --embed-size=<int>                  word embed_dim [default: 300]
     --hidden-size=<int>                 hidden dim [default: 300]
     --num-layers=<int>                  number of layers [default: 2]
@@ -35,15 +35,52 @@ from docopt import docopt
 
 from utils import readCorpus
 from utils import loadEmbeddings
-from utils import extractPairCorpus
-from utils import batch_iter
-from utils import save
-from utils import labels_to_indices
 from utils import extractSentLabel
+from utils import batch_iter
+from utils import labels_to_indices
 from vocab import Vocab
 from nli_model import NLIModel
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+def evaluate(model, data, batch_size):
+    """
+    Evaluate the model on the data
+    @param model (NLIModel): NLI Model
+    @param data (tuple(prem, hyp, label)): data returned by extractSentLabel
+    @param batch_size (int): batch size
+    @return avg_loss (float): avg. cross entropy loss on the data
+    @return avg_acc (float): avg. classification accuracy on the data
+    """
+    was_training = model.training
+    model.eval()
+
+    total_loss = .0
+    total_correct_preds = 0
+    with torch.no_grad():
+        for prems, hyps, labels in batch_iter(data, batch_size, shuffle=True, label=True):
+            labels_pred = model(prems, hyps)
+
+            P = F.log_softmax(labels_pred, dim=-1)
+            labels_indices = labels_to_indices(labels)
+            labels_indices = labels_indices.to(device) 
+            cross_entropy_loss = torch.gather(P, dim=-1,
+                index=labels_indices.unsqueeze(-1)).squeeze(-1)
+
+            batch_loss = -cross_entropy_loss.sum()
+            num_correct_preds = compareLabels(labels_pred, labels)
+
+            batch_losses_val = batch_loss.item()
+            total_loss += batch_losses_val
+            total_correct_preds += num_correct_preds
+
+    avg_loss = total_loss / len(data)
+    avg_acc = total_correct_preds / len(data)
+    
+    if was_training:
+        model.train()
+
+    return av_loss, avg_acc
 
 def train(args):
     """
@@ -57,27 +94,30 @@ def train(args):
 
     #train NLI prediction model
     train_data = extractSentLabel(args['--train-file'])
+    dev_data = extractSentLabel(args['--dev-file'])
 
     train_batch_size = int(args['--batch-size'])
-    log_every = int(args['--log-every'])
+    dev_batch_size = int(args['--batch-size'])
     model_save_path = args['--save-model-to']
 
     model = NLIModel(vocab, int(args['--embed-size']), embeddings,
                     hidden_size=int(args['--hidden-size']),
                     num_layers=int(args['--num-layers']),
                     dropout_rate=float(args['--dropout']), device=device)
+
+    model = model.train()
     model = model.to(device)
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=float(args['--lr']))
+    lr = float(args['--lr'])
+    optimizer = torch.optim.Adam(model.parameters(), lr)
 
-    train_time = begin_time = time.time()
-    train_iter = report_loss = 0
-    patience = cum_loss = cum_examples = report_examples = 0
+    total_loss = prev_dev_loss = .0
+    prev_dev_acc = 0
+    patience = 0
 
+    begin_time = time.time()
     for epoch in range(int(args['--max-epoch'])):
         for prems, hyps, labels in batch_iter(train_data, batch_size=train_batch_size, shuffle=True, label=True):
-            train_iter += 1
-
             optimizer.zero_grad()
             
             batch_size = len(prems)
@@ -96,24 +136,44 @@ def train(args):
 
             grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), clip_grad)
             optimizer.step()
-            if epoch == 0 and train_iter < 5:
-                print('initial loss= %.2f' %(batch_loss.item()))
             
             batch_losses_val = batch_loss.item()
-            report_loss += batch_losses_val
-            cum_loss += batch_losses_val
+            total_loss += batch_losses_val
 
-            report_examples += batch_size
-            cum_examples += batch_size
+        #print train loss at the end of each epoch
+        train_loss = total_loss / len(train_data)
+        print('epoch = %d, avg. loss = %.2f, time elapsed = %.2f sec'
+            % (epoch, train_loss, time.time() - begin_time))
+        train_loss = .0
 
-            if train_iter % log_every == 0:
-                print('epoch= %d, iter= %d, avg. loss= %.2f, cum. examples= %d, time elapsed= %.2f sec'
-                    %(epoch, train_iter, report_loss / report_examples, cum_examples, time.time() - begin_time))
+        #perform validation
+        dev_loss, dev_acc = evaluate(model, dev_data, dev_batch_size)
+        is_better = epoch == 0 or (dev_loss < prev_dev_loss or 
+                                    dev_acc > prev_dev_acc)
+        if is_better:
+            #reset patience
+            patience = 0
+            #save model
+            model.save(model_save_path)
 
-                train_time = time.time()
-                report_loss = report_examples = 0
+        else:
+            patience += 1
+            if patience == int(args['--patience']):
+                print('finishing training: dev loss = %.2f, dev acc. = %.2f'
+                    % (dev_loss, dev_acc))
+                exit(0)
 
-    save(model.state_dict(), model_save_path)
+        print('validation: dev loss = %.2f, dev acc. = %.2f'
+            % (dev_loss, dev_acc))
+
+        #update lr after every 2 epochs
+        if epoch % 2 == 0:
+            lr = lr / 2 ** (epoch // 2)
+            for param_group in optimizer.param_groups:
+                param_gr['lr'] = lr
+        #update prev loss and acc
+        prev_dev_loss = dev_loss
+        prev_dev_acc = dev_acc
 
 if __name__ == "__main__":
     args = docopt(__doc__)
