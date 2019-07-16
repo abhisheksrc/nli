@@ -38,8 +38,8 @@ class NeuralModel(nn.Module):
         """
         given a batch of prems and hyps, run encoder on prems to get hidden state init for decoder
         run decoder to generate the hyps and calculate log-likelihood of the words in the hyps
-        @param prems (List[List[str]]): batches of premise (List[str])
-        @param hyps (List[List[str]]): batches of hypothesis (List[str])
+        @param prems (list[list[str]]): batches of premise (list[str])
+        @param hyps (list[list[str]]): batches of hypothesis (list[str])
         @return scores (torch.Tensor(batch-size, )): log-likelihod of generating the words in the hyps
         """
         prems_lengths = [len(prem) for prem in prems]
@@ -66,7 +66,7 @@ class NeuralModel(nn.Module):
         """
         apply the encoder on the premises to obtain encoder hidden states
         @param prems (torch.tensor(max_prem_len, batch))
-        @param prems_lens (List[int]): list of actual lengths of the prems
+        @param prems_lens (list[int]): list of actual lengths of the prems
         @return enc_hiddens (torch.tensor(max_prem_len, batch, hidden*2)): tensor of seq of hidden outs
         @return dec_init_state (tuple(torch.tensor(num-layers, batch, hidden*2), torch.tensor(num-layers, batch, hidden*2))): encoders final hidden state and cell i.e. decoders initial hidden state and cell
         """

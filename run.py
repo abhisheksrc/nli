@@ -46,10 +46,10 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 def train_lg_model(args, vocab, embeddings, train_data, label):
     """
     train LG model on the specific label
-    @param args (Dict): command line args
+    @param args (dict): command line args
     @param vocab (Vocab): Vocab class obj
     @param embeddings (torch.tensor(len(vocab), embed_dim)): pretrained word embeddings
-    @param train_data (List[tuple]): list of sent pairs containing premise and hypothesis
+    @param train_data (list[tuple]): list of sent pairs containing premise and hypothesis
     @param label (str): hyp label    
     """
     train_batch_size = int(args['--batch-size'])
@@ -106,7 +106,7 @@ def train_lg_model(args, vocab, embeddings, train_data, label):
 def train(args):
     """
     train neural models
-    @param args (Dict): command line args
+    @param args (dict): command line args
     """
     train_sents = readCorpus(args['--train-file'])
     vocab = Vocab.load(args['--vocab-file'])

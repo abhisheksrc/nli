@@ -10,7 +10,7 @@ def readLine(line):
     """
     read line of format label\tprem\thyp\n
     @param line (str)
-    @return label, prem, hyp (tuple(str, List[str], List[str]))
+    @return label, prem, hyp (tuple(str, list[str], list[str]))
     """
     line = line.split('\n')[0]
     line = line.split('\t')
@@ -23,9 +23,9 @@ def readLine(line):
 
 def readCorpus(file_path):
     """
-    read file to construct a List of sentences (List[str])
+    read file to construct a list of sentences (list[str])
     @param file_path (str): path to file containing corpus
-    @return data (List[List[str]]): list of sentences (containing tokens)
+    @return data (list[list[str]]): list of sentences (containing tokens)
     """
     data = []
     for line in open(file_path, 'r'):
@@ -70,7 +70,7 @@ def extractPairCorpus(file_path):
     """
     build list of (prem, hyp) for each label
     @param file_path (str): /path/corpus
-    @return entail_pairs, neutral_pairs, contradict_pairs (List[tuple(List[str])])
+    @return entail_pairs, neutral_pairs, contradict_pairs (list[tuple(list[str])])
     """
     entail_pairs, neutral_pairs, contradict_pairs = [], [], []
     for line in open(file_path, 'r'):
@@ -88,7 +88,7 @@ def extractSentLabel(file_path):
     """
     build list of (prem, hyp)
     @param file_path (str): /path/corpus
-    @return (prems, hyps, labels) (List[tuple(prems, hyps, labels)])
+    @return (prems, hyps, labels) (list[tuple(prems, hyps, labels)])
     """
     data = []
     for line in open(file_path, 'r'):
@@ -100,7 +100,7 @@ def extractSentLabel(file_path):
 def batch_iter(data, batch_size, shuffle=True, label=False):
     """
     yield batches of premise and hypothesis and label(optional) reverse sorted by length
-    @param data (List[tuple]): list of tuples (premise, hypothesis, label(optional))
+    @param data (list[tuple]): list of tuples (premise, hypothesis, label(optional))
     @param batch_size (int)
     @param shuffle (boolean): option randomly shuffle data
     @param label (boolean): if optional label also present in data tuples
@@ -126,9 +126,9 @@ def batch_iter(data, batch_size, shuffle=True, label=False):
 
 def padSents(sents, pad_idx):
     """
-    @param sents (List[List[int]]):
+    @param sents (list[list[int]]):
     @param pad_idx (int): Pad ID
-    @return sents_padded (List[List[int]]): sents with padding according to max_sent_len
+    @return sents_padded (list[list[int]]): sents with padding according to max_sent_len
     """
     max_len = 0
     sents_padded = []
@@ -143,9 +143,9 @@ def padSents(sents, pad_idx):
 def sortHyps(hyps):
     """
     reverse sort the hyps, criteria: length
-    @param hyps (List[List[str]])
-    @return hyps_sorted (List[List[str]])
-    @return index_map (Dict): mapping hyps_indices_sorted->hyps_indices_orig
+    @param hyps (list[list[str]])
+    @return hyps_sorted (list[list[str]])
+    @return index_map (dict): mapping hyps_indices_sorted->hyps_indices_orig
     """
     hyps_indices = []
     for i, hyp in enumerate(hyps):
@@ -163,7 +163,7 @@ def sortHyps(hyps):
 def labels_to_indices(labels):
     """
     map NLI labels to indices and return them as Tensor
-    @param labels (List[str])
+    @param labels (list[str])
     @return labels_indices (torch.tensor(batch,))
     """
     labels_map = {'entailment' : 0,
@@ -176,7 +176,7 @@ def compareLabels(predicted, gold):
     """
     compute num matchings between the predicted and the gold
     @param predicted (torch.tensor(batch, 3)): out from the NLI Model
-    @param gold (List[str]): list of gold labels
+    @param gold (list[str]): list of gold labels
     @return num_matches (int): number of matches between predicted and gold
     """
     num_matches = 0

@@ -40,8 +40,8 @@ class NLIModel(nn.Module):
         given a batch of prems and hyps, run encoder on prems and hyps
         followed by max-pooling
         and finally pass through the classifier
-        @param prems (List[List[str]]): batches of premise (List[str])
-        @param hyps (List[List[str]]): batches of hypothesis (List[str])
+        @param prems (list[list[str]]): batches of premise (list[str])
+        @param hyps (list[list[str]]): batches of hypothesis (list[str])
         @return outs (torch.Tensor(batch-size, 3)): log-likelihod of 3-labels
         """
         prems_lengths = [len(prem) for prem in prems]
@@ -74,7 +74,7 @@ class NLIModel(nn.Module):
         """
         apply the encoder on the sentences to obtain encoder hidden states
         @param prems (torch.tensor(max_sent_len, batch))
-        @param sents_lens (List[int]): list of actual lengths of the sents
+        @param sents_lens (list[int]): list of actual lengths of the sents
         @return enc_hiddens (torch.tensor(max_sent_len, batch, hidden*2)): 
             tensor of seq of hidden outs
         """
@@ -89,7 +89,7 @@ class NLIModel(nn.Module):
         apply max pool to each encoding to extract the max element
         @param encodings (torch.tensor(max_encoding_len, batch, hidden*2)):
             the out sequence of encoder
-        @param lengths (List[int]): list of actual lengths of the encodings
+        @param lengths (list[int]): list of actual lengths of the encodings
         @return outs_encoder_final (torch.tensor(batch, hidden*2)):
             final out of the encoder
         """

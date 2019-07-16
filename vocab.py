@@ -79,7 +79,7 @@ class Vocab(object):
     def sents2Tensor(self, sents, device):
         """
         Convert list of sent to tensor by padding required sents
-        @param sents (List[List[str]]): batch of sents in reverse sorted order
+        @param sents (list[list[str]]): batch of sents in reverse sorted order
         @return torch.t(out_tensor) (torch.tensor (max_sent_len, batch_size))
         """
         word_ids = self.words2indices(sents)
@@ -98,7 +98,7 @@ class Vocab(object):
     def build(corpus, freq_cutoff):
         """
         create Vocab object for the words in the corpus
-        @param corpus (List[List[str]]): corpus of text produced by readCorpus() function
+        @param corpus (list[list[str]]): corpus of text produced by readCorpus() function
         @param freq_cutoff (int): cutoff for droping words based on their frequency
         @return vocab (Vocab): Vocab class obj
         """
