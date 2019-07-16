@@ -90,12 +90,12 @@ def extractSentLabel(file_path):
     @param file_path (str): /path/corpus
     @return (prems, hyps, labels) (List[tuple(prems, hyps, labels)])
     """
-    train_data = []
+    data = []
     for line in open(file_path, 'r'):
         label, prem, hyp = readLine(line)
         if label != '-':
-            train_data.append((prem, hyp, label))
-    return train_data
+            data.append((prem, hyp, label))
+    return data
 
 def batch_iter(data, batch_size, shuffle=True, label=False):
     """
@@ -140,14 +140,6 @@ def padSents(sents, pad_idx):
 
     return sents_padded
 
-def save(model_dict, file_path):
-    """
-    Depricated: use neural model's save function
-    @param model_dict (Dict): model.state_dict()
-    @param file_path (str)
-    """
-    torch.save(model_dict, file_path)
-
 def sortHyps(hyps):
     """
     reverse sort the hyps, criteria: length
@@ -179,3 +171,22 @@ def labels_to_indices(labels):
                     'contradiction': 2}
     labels_indices = torch.tensor([labels_map[label] for label in labels], dtype=torch.long)
     return labels_indices
+
+def compareLabels(predicted, gold):
+    """
+    compute num matchings between the predicted and the gold
+    @param predicted (torch.tensor(batch, 3)): out from the NLI Model
+    @param gold (List[str]): list of gold labels
+    @return num_matches (int): number of matches between predicted and gold
+    """
+    num_matches = 0
+    labels_map = {'entailment' : 0,
+                    'neutral': 1,
+                    'contradiction': 2}
+    
+    pred_label_indices = torch.argmax(predicted, dim=-1)
+    for i, pred_label_index in enumerate(pred_label_indices):
+        pred_label_index = pred_label_index.item()
+        if pred_label_index == labels_map[gold[i]]:
+            num_matches += 1
+    return num_matches
