@@ -30,7 +30,7 @@ class NLIModel(nn.Module):
         self.num_layers = num_layers
         self.dropout_rate = dropout_rate
 
-        self.encoder = nn.LSTM(input_size=self.embed_size, hidden_size=self.hidden_size, num_layers=self.num_layers, bias=True, bidirectional=True)
+        self.encoder = nn.LSTM(input_size=embed_size, hidden_size=self.hidden_size, num_layers=self.num_layers, bias=True, bidirectional=True)
 
         #classifier for 3 possible labels
         self.classifier = nn.Linear(in_features=self.hidden_size*4, out_features=3)

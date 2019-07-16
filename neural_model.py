@@ -30,9 +30,9 @@ class NeuralModel(nn.Module):
 
         self.vocab_projection = nn.Linear(self.hidden_size*2, len(self.vocab), bias=False)
 
-        self.encoder = nn.LSTM(input_size=self.embed_size, hidden_size=self.hidden_size, num_layers=self.num_layers, bias=True, bidirectional=True)
+        self.encoder = nn.LSTM(input_size=embed_size, hidden_size=self.hidden_size, num_layers=self.num_layers, bias=True, bidirectional=True)
 
-        self.decoder = nn.LSTMCell(input_size=self.embed_size, hidden_size=self.hidden_size*2)
+        self.decoder = nn.LSTMCell(input_size=embed_size, hidden_size=self.hidden_size*2)
 
     def forward(self, prems, hyps):
         """

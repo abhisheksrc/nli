@@ -38,6 +38,7 @@ from utils import loadEmbeddings
 from utils import extractSentLabel
 from utils import batch_iter
 from utils import labels_to_indices
+from utils import compareLabels
 from vocab import Vocab
 from nli_model import NLIModel
 
@@ -80,7 +81,7 @@ def evaluate(model, data, batch_size):
     if was_training:
         model.train()
 
-    return av_loss, avg_acc
+    return avg_loss, avg_acc
 
 def train(args):
     """
@@ -144,7 +145,7 @@ def train(args):
         train_loss = total_loss / len(train_data)
         print('epoch = %d, avg. loss = %.2f, time elapsed = %.2f sec'
             % (epoch, train_loss, time.time() - begin_time))
-        train_loss = .0
+        total_loss = .0
 
         #perform validation
         dev_loss, dev_acc = evaluate(model, dev_data, dev_batch_size)
@@ -170,7 +171,8 @@ def train(args):
         if epoch % 2 == 0:
             lr = lr / 2 ** (epoch // 2)
             for param_group in optimizer.param_groups:
-                param_gr['lr'] = lr
+                param_group['lr'] = lr
+
         #update prev loss and acc
         prev_dev_loss = dev_loss
         prev_dev_acc = dev_acc
