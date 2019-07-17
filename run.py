@@ -4,12 +4,12 @@ run.py: run script for NLI LG Model
 Abhishek Sharma <sharm271@cs.purdue.edu>
 
 Usage:
-    run.py train [--train-file=<file> --dev-file=<file>] [--word-embeddings=<file>] [options]
+    run.py train --train-file=<file> --dev-file=<file> [options]
 
 Options:
     -h --help                           show this screen.
-    --train-file=<file>                 train_corpus [default: ../data/snli_train.txt]
-    --dev-file=<file>                   dev_corpus [default: ../data/snli_dev.txt]
+    --train-file=<file>                 train_corpus
+    --dev-file=<file>                   dev_corpus
     --vocab-file=<file>                 vocab json [default: vocab.json]
     --word-embeddings=<file>            word_vecs [default: ../data/wiki-news-300d-1M.txt]
     --max-epoch=<int>                   max epoch [default: 15]

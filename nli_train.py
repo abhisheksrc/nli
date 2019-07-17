@@ -4,13 +4,14 @@ nli_train.py: Script for NLI Model
 Abhishek Sharma <sharm271@cs.purdue.edu>
 
 Usage:
-    nli_train.py train [--train-file=<file> --dev-file=<file>] [--word-embeddings=<file>] [options]
-    nli_train.py test MODEL_PATH [--test-file=<file> --batch-size=<int>]
+    nli_train.py train --train-file=<file> --dev-file=<file> [options]
+    nli_train.py test MODEL_PATH --test-file=<file> [options]
+
 Options:
     -h --help                           show this screen.
-    --train-file=<file>                 train_corpus [default: ../data/snli_train.txt]
-    --dev-file=<file>                   dev_corpus [default: ../data/snli_dev.txt]
-    --test-file=<file>                  test_corpus [default: ../data/snli_test.txt]
+    --train-file=<file>                 train_corpus
+    --dev-file=<file>                   dev_corpus
+    --test-file=<file>                  test_corpus
     --vocab-file=<file>                 vocab json [default: vocab.json]
     --word-embeddings=<file>            word_vecs [default: ../data/wiki-news-300d-1M.txt]
     --max-epoch=<int>                   max epoch [default: 15]
