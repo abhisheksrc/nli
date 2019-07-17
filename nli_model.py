@@ -78,22 +78,32 @@ class NLIModel(nn.Module):
         apply the encoder on the sentences to obtain encoder hidden states
         @param sents (torch.tensor(max_sent_len, batch))
         @param sents_lens (list[int]): list of actual lengths of the sents
-        @return sents_enc_out (torch.tensor(max_sent_len, batch, hidden*2)): 
-            tensor of seq of encoder out
+        @return out_layer_3 (torch.tensor(max_sent_len, batch, hidden*4*2)): 
+            the final out from the laste lstm layer
         """
         X = self.embeddings(sents)
-        X = rnn.pack_padded_sequence(X, sents_lens)
-
-        out_layer_1, (h_n, c_n) = self.lstm_1(X)
+        out_layer_1 = self.run_BiLSTM(self.lstm_1, X, sents_lens)
 
         in_layer_2 = torch.cat([X, out_layer_1], dim=-1)
-        out_layer_2, (h_n, c_n) = self.lstm_2(in_layer_2)
+        out_layer_2 = self.run_BiLSTM(self.lstm_2, in_layer_2, sents_lens)
 
         in_layer_3 = torch.cat([X, out_layer_1, out_layer_2], dim=-1)
-        out_layer_3, (h_n, c_n) = self.lstm_3(in_layer_3)
+        out_layer_3 = self.run_BiLSTM(self.lstm_3, in_layer_3, sents_lens)
 
-        sents_enc_out, sents_lens_tensor = rnn.pad_packed_sequence(out_layer_3)
-        return sents_enc_out
+        return out_layer_3
+
+    def run_BiLSTM(self, lstm_model, in_layer, sents_lens):
+        """
+        run BiLSTM on the input
+        @param lstm_model (nn.LSTM): LSTM model
+        @param in_layer (torch.tensor(max_sent_len, batch, embed + hidden*((2 ** i) - 2))): input layer for the model, i = layer#
+        @param sents_lens (list[int]): list of actual lengths of the sents
+        @return out_layer (torch.tensor(max_sent_len, batch, hidden*2*i)): output layer of the model, i = layer#
+        """
+        in_layer = rnn.pack_padded_sequence(in_layer, sents_lens)
+        out_layer, (h_n, c_n) = lstm_model(in_layer)
+        out_layer, sents_lens_tensor = rnn.pad_packed_sequence(out_layer)
+        return out_layer
 
     def maxPool(self, encodings, lengths):
         """
