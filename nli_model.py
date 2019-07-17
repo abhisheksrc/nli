@@ -35,8 +35,14 @@ class NLIModel(nn.Module):
         self.lstm_2 = nn.LSTM(input_size=(embed_size + self.hidden_size*2), hidden_size=self.hidden_size*2, num_layers=1, bias=True, bidirectional=True)
         self.lstm_3 = nn.LSTM(input_size=(embed_size + self.hidden_size*2 + self.hidden_size*4), hidden_size=self.hidden_size*4, num_layers=1, bias=True, bidirectional=True)
 
-        #classifier: in_features = final lstm out_size * 2 (bidirectional) * 2 (prem-hyp)
-        self.classifier = nn.Linear(in_features=self.hidden_size*4*2*2, out_features=3)
+        #classifier: in_features = final lstm out_size * 2 (bidirectional) * 4 (prem-hyp feature concat)
+        #           out_fearures = 3 labels
+        self.mlp_1 = nn.Linear(in_features=self.hidden_size*4*2*4, out_features=self.hidden_size*2)
+        self.mlp_2 = nn.Linear(in_features=self.hidden_size*2, out_features=self.hidden_size*2)
+        self.sm = nn.Linear(in_features=self.hidden_size*2, out_features=3)
+        self.classifier = nn.Sequential(*[self.mlp_1, nn.ReLU(), nn.Dropout(self.dropout_rate),
+                                        self.mlp_2, nn.ReLU(), nn.Dropout(self.dropout_rate),
+                                        self.sm])        
 
     def forward(self, prems, hyps):
         """
@@ -65,12 +71,12 @@ class NLIModel(nn.Module):
         hyps_enc_out_orig = torch.cat(hyps_enc_out_seq_orig, dim=1)
 
         #max pooling and classifier
-        prems_encoding_final = self.maxPool(prems_enc_out, prems_lengths)
-        hyps_encoding_final = self.maxPool(hyps_enc_out_orig, hyps_lengths_orig)
+        prems_enc_final = self.maxPool(prems_enc_out, prems_lengths)
+        hyps_enc_final = self.maxPool(hyps_enc_out_orig, hyps_lengths_orig)
         
-        ins_classifier = torch.cat((prems_encoding_final, hyps_encoding_final), dim=-1)
+        classifier_features = torch.cat([prems_enc_final, hyps_enc_final, torch.abs(prems_enc_final - hyps_enc_final), prems_enc_final * hyps_enc_final], dim=-1)
         
-        outs = self.classifier(ins_classifier)
+        outs = self.classifier(classifier_features)
         return outs 
 
     def encode(self, sents, sents_lens):
