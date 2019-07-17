@@ -30,10 +30,13 @@ class NLIModel(nn.Module):
         self.num_layers = num_layers
         self.dropout_rate = dropout_rate
 
-        self.encoder = nn.LSTM(input_size=embed_size, hidden_size=self.hidden_size, num_layers=self.num_layers, bias=True, bidirectional=True)
+        #self.encoder = nn.LSTM(input_size=embed_size, hidden_size=self.hidden_size, num_layers=self.num_layers, bias=True, bidirectional=True)
+        self.lstm_1 = nn.LSTM(input_size=embed_size, hidden_size=self.hidden_size, num_layers=1, bias=True, bidirectional=True)
+        self.lstm_2 = nn.LSTM(input_size=(embed_size + self.hidden_size*2), hidden_size=self.hidden_size*2, num_layers=1, bias=True, bidirectional=True)
+        self.lstm_3 = nn.LSTM(input_size=(embed_size + self.hidden_size*2 + self.hidden_size*4), hidden_size=self.hidden_size*4, num_layers=1, bias=True, bidirectional=True)
 
-        #classifier for 3 possible labels
-        self.classifier = nn.Linear(in_features=self.hidden_size*4, out_features=3)
+        #classifier: in_features = final lstm out_size * 2 (bidirectional) * 2 (prem-hyp)
+        self.classifier = nn.Linear(in_features=self.hidden_size*4*2*2, out_features=3)
 
     def forward(self, prems, hyps):
         """
@@ -47,7 +50,7 @@ class NLIModel(nn.Module):
         prems_lengths = [len(prem) for prem in prems]
         prems_padded = self.vocab.sents2Tensor(prems, device=self.device)
 
-        prems_enc_outs = self.encode(prems_padded, prems_lengths)
+        prems_enc_out = self.encode(prems_padded, prems_lengths)
 
         #reverse sort hyps and save original lengths and index mapping:
         #   map: indices_sorted -> indices_orig
@@ -56,14 +59,14 @@ class NLIModel(nn.Module):
         hyps_lengths_sorted = [len(hyp) for hyp in hyps_sorted]
         hyps_padded = self.vocab.sents2Tensor(hyps_sorted, device=self.device)
 
-        hyps_enc_outs = self.encode(hyps_padded, hyps_lengths_sorted)
-        hyps_enc_outs_seq_orig = [hyps_enc_outs[:, index_map[i], :].unsqueeze(dim=1) 
+        hyps_enc_out = self.encode(hyps_padded, hyps_lengths_sorted)
+        hyps_enc_out_seq_orig = [hyps_enc_out[:, index_map[i], :].unsqueeze(dim=1) 
                                     for i in range(len(hyps))]
-        hyps_enc_outs_orig = torch.cat(hyps_enc_outs_seq_orig, dim=1)
+        hyps_enc_out_orig = torch.cat(hyps_enc_out_seq_orig, dim=1)
 
         #max pooling and classifier
-        prems_encoding_final = self.maxPool(prems_enc_outs, prems_lengths)
-        hyps_encoding_final = self.maxPool(hyps_enc_outs_orig, hyps_lengths_orig)
+        prems_encoding_final = self.maxPool(prems_enc_out, prems_lengths)
+        hyps_encoding_final = self.maxPool(hyps_enc_out_orig, hyps_lengths_orig)
         
         ins_classifier = torch.cat((prems_encoding_final, hyps_encoding_final), dim=-1)
         
@@ -73,16 +76,24 @@ class NLIModel(nn.Module):
     def encode(self, sents, sents_lens):
         """
         apply the encoder on the sentences to obtain encoder hidden states
-        @param prems (torch.tensor(max_sent_len, batch))
+        @param sents (torch.tensor(max_sent_len, batch))
         @param sents_lens (list[int]): list of actual lengths of the sents
-        @return enc_hiddens (torch.tensor(max_sent_len, batch, hidden*2)): 
-            tensor of seq of hidden outs
+        @return sents_enc_out (torch.tensor(max_sent_len, batch, hidden*2)): 
+            tensor of seq of encoder out
         """
         X = self.embeddings(sents)
         X = rnn.pack_padded_sequence(X, sents_lens)
-        enc_hiddens, (h_n, c_n) = self.encoder(X)
-        enc_hiddens, sents_lens_tensor = rnn.pad_packed_sequence(enc_hiddens)
-        return enc_hiddens
+
+        out_layer_1, (h_n, c_n) = self.lstm_1(X)
+
+        in_layer_2 = torch.cat([X, out_layer_1], dim=-1)
+        out_layer_2, (h_n, c_n) = self.lstm_2(in_layer_2)
+
+        in_layer_3 = torch.cat([X, out_layer_1, out_layer_2], dim=-1)
+        out_layer_3, (h_n, c_n) = self.lstm_3(in_layer_3)
+
+        sents_enc_out, sents_lens_tensor = rnn.pad_packed_sequence(out_layer_3)
+        return sents_enc_out
 
     def maxPool(self, encodings, lengths):
         """
