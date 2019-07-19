@@ -145,20 +145,20 @@ def sortHyps(hyps):
     reverse sort the hyps, criteria: length
     @param hyps (list[list[str]])
     @return hyps_sorted (list[list[str]])
-    @return index_map (dict): mapping hyps_indices_sorted->hyps_indices_orig
+    @return orig_to_sorted (dict): mapping hyps_indices_orig->hyps_indices_sorted
     """
     hyps_indices = []
     for i, hyp in enumerate(hyps):
         hyps_indices.append((hyp, i))
     hyps_indices.sort(key=lambda (hyp, index): len(hyp), reverse=True)
 
-    index_map = {}
+    orig_to_sorted = {}
     hyps_sorted = []
     for i, (hyp, index) in enumerate(hyps_indices):
-        index_map[i] = index
+        orig_to_sorted[index] = i
         hyps_sorted.append(hyp)
 
-    return hyps_sorted, index_map
+    return hyps_sorted, orig_to_sorted
 
 def labels_to_indices(labels):
     """

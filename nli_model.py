@@ -61,12 +61,12 @@ class NLIModel(nn.Module):
         #reverse sort hyps and save original lengths and index mapping:
         #   map: indices_sorted -> indices_orig
         hyps_lengths_orig = [len(hyp) for hyp in hyps]
-        hyps_sorted, index_map = sortHyps(hyps)
+        hyps_sorted, orig_to_sorted = sortHyps(hyps)
         hyps_lengths_sorted = [len(hyp) for hyp in hyps_sorted]
         hyps_padded = self.vocab.sents2Tensor(hyps_sorted, device=self.device)
 
         hyps_enc_out = self.encode(hyps_padded, hyps_lengths_sorted)
-        hyps_enc_out_seq_orig = [hyps_enc_out[:, index_map[i], :].unsqueeze(dim=1) 
+        hyps_enc_out_seq_orig = [hyps_enc_out[:, orig_to_sorted[i], :].unsqueeze(dim=1) 
                                     for i in range(len(hyps))]
         hyps_enc_out_orig = torch.cat(hyps_enc_out_seq_orig, dim=1)
 
