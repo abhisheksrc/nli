@@ -13,13 +13,13 @@ class NLIModel(nn.Module):
     max pooling
     classifier
     """
-    def __init__(self, vocab, embed_size, embeddings, hidden_size, num_layers, dropout_rate, device):
+    def __init__(self, vocab, embed_size, embeddings, hidden_size, mlp_size, dropout_rate, device):
         """
         @param vocab (Vocab): vocab object
         @param embed_size (int): embedding size
         @param embeddings (torch.tensor (len(vocab), embed_dim)): pretrained word embeddings
         @param hidden_size (int): hidden size
-        @param num_layers (int): num layers
+        @param mlp_size (int): mlp size
         @param dropout_rate (float): dropout prob
         """
         super(NLIModel, self).__init__()
@@ -27,7 +27,7 @@ class NLIModel(nn.Module):
         self.device = device
         self.vocab = vocab
         self.hidden_size = hidden_size
-        self.num_layers = num_layers
+        self.mlp_size = mlp_size
         self.dropout_rate = dropout_rate
 
         #self.encoder = nn.LSTM(input_size=embed_size, hidden_size=self.hidden_size, num_layers=self.num_layers, bias=True, bidirectional=True)
@@ -37,9 +37,9 @@ class NLIModel(nn.Module):
 
         #classifier: in_features = final lstm out_size * 2 (bidirectional) * 4 (prem-hyp feature concat)
         #           out_fearures = 3 labels
-        self.mlp_1 = nn.Linear(in_features=self.hidden_size*4*2*4, out_features=self.hidden_size*2)
-        self.mlp_2 = nn.Linear(in_features=self.hidden_size*2, out_features=self.hidden_size*2)
-        self.sm = nn.Linear(in_features=self.hidden_size*2, out_features=3)
+        self.mlp_1 = nn.Linear(in_features=self.hidden_size*4*2*4, out_features=self.mlp_size)
+        self.mlp_2 = nn.Linear(in_features=self.mlp_size, out_features=self.mlp_size)
+        self.sm = nn.Linear(in_features=self.mlp_size, out_features=3)
         self.classifier = nn.Sequential(*[self.mlp_1, nn.ReLU(), nn.Dropout(self.dropout_rate),
                                         self.mlp_2, nn.ReLU(), nn.Dropout(self.dropout_rate),
                                         self.sm])        
@@ -136,7 +136,7 @@ class NLIModel(nn.Module):
             'vocab' : self.vocab,
             'args' : dict(embed_size=self.embeddings.embed_size, 
                         embeddings=self.embeddings,
-                        hidden_size=self.hidden_size, num_layers=self.num_layers,
+                        hidden_size=self.hidden_size, mlp_size=self.mlp_size,
                         dropout_rate=self.dropout_rate, device=self.device),
             'state_dict': self.state_dict()      
         }

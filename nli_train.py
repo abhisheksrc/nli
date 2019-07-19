@@ -15,13 +15,14 @@ Options:
     --vocab-file=<file>                 vocab json [default: vocab.json]
     --word-embeddings=<file>            word_vecs [default: ../data/wiki-news-300d-1M.txt]
     --max-epoch=<int>                   max epoch [default: 15]
-    --patience=<int>                    wait for how many epochs to exit training [default: 2]
+    --patience=<int>                    wait for how many epochs to exit training [default: 5]
     --batch-size=<int>                  batch size [default: 32]
     --embed-size=<int>                  word embed_dim [default: 300]
-    --hidden-size=<int>                 hidden dim [default: 300]
-    --num-layers=<int>                  number of layers [default: 2]
+    --hidden-size=<int>                 hidden dim [default: 256]
+    --mlp-hidden-size=<int>             mlp hidden dim [default: 1600]
+    --num-layers=<int>                  number of layers [default: 3]
     --clip-grad=<float>                 grad clip [default: 5.0]
-    --lr=<float>                        learning rate [default: 0.001]
+    --lr=<float>                        learning rate [default: 2e-4]
     --dropout=<float>                   dropout rate [default: 0.1]
     --save-model-to=<file>              save trained model [default: nli_model.pt]
 """
@@ -104,14 +105,14 @@ def train(args):
 
     model = NLIModel(vocab, int(args['--embed-size']), embeddings,
                     hidden_size=int(args['--hidden-size']),
-                    num_layers=int(args['--num-layers']),
+                    mlp_size=int(args['--mlp-hidden-size']),
                     dropout_rate=float(args['--dropout']), device=device)
 
     model = model.train()
     model = model.to(device)
 
-    lr = float(args['--lr'])
-    optimizer = torch.optim.Adam(model.parameters(), lr)
+    init_lr = float(args['--lr'])
+    optimizer = torch.optim.Adam(model.parameters(), init_lr)
 
     total_loss = prev_dev_loss = .0
     prev_dev_acc = 0
@@ -136,7 +137,7 @@ def train(args):
 
             loss.backward()
 
-            grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), clip_grad)
+            #grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), clip_grad)
             optimizer.step()
             
             batch_losses_val = batch_loss.item()
@@ -144,7 +145,7 @@ def train(args):
 
         #print train loss at the end of each epoch
         train_loss = total_loss / len(train_data)
-        print('epoch = %d, avg. loss = %.2f, time elapsed = %.2f sec'
+        print('epoch = %d: avg. loss = %.2f, time elapsed = %.2f sec'
             % (epoch, train_loss, time.time() - begin_time))
         total_loss = .0
 
@@ -169,10 +170,9 @@ def train(args):
             % (dev_loss, dev_acc))
 
         #update lr after every 2 epochs
-        if epoch % 2 == 0:
-            lr = lr / 2 ** (epoch // 2)
-            for param_group in optimizer.param_groups:
-                param_group['lr'] = lr
+        lr = init_lr / 2 ** (epoch // 2)
+        for param_group in optimizer.param_groups:
+            param_group['lr'] = lr
 
         #update prev loss and acc
         prev_dev_loss = dev_loss
