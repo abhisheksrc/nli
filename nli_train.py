@@ -115,6 +115,7 @@ def train(args):
     optimizer = torch.optim.Adam(model.parameters(), init_lr)
 
     total_loss = prev_dev_loss = .0
+    hist_dev_losses = []
     prev_dev_acc = 0
     patience = 0
 
@@ -151,8 +152,9 @@ def train(args):
 
         #perform validation
         dev_loss, dev_acc = evaluate(model, dev_data, dev_batch_size)
-        is_better = epoch == 0 or (dev_loss < prev_dev_loss or 
-                                    dev_acc > prev_dev_acc)
+        is_better = epoch == 0 or dev_loss < min(hist_dev_losses)
+        hist_dev_losses.append(dev_loss)
+
         if is_better:
             #reset patience
             patience = 0
@@ -168,7 +170,7 @@ def train(args):
 
         print('validation: dev loss = %.2f, dev acc. = %.2f'
             % (dev_loss, dev_acc))
-
+        
         #update lr after every 2 epochs
         lr = init_lr / 2 ** (epoch // 2)
         for param_group in optimizer.param_groups:
