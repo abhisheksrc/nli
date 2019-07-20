@@ -23,7 +23,8 @@ class NLIModel(nn.Module):
         @param dropout_rate (float): dropout prob
         """
         super(NLIModel, self).__init__()
-        self.embeddings = ModelEmbeddings(vocab, embed_size, embeddings)
+        self.pretrained_embeddings = embeddings
+        self.embeddings = ModelEmbeddings(vocab, embed_size, self.pretrained_embeddings)
         self.device = device
         self.vocab = vocab
         self.hidden_size = hidden_size
@@ -135,7 +136,7 @@ class NLIModel(nn.Module):
         params = {
             'vocab' : self.vocab,
             'args' : dict(embed_size=self.embeddings.embed_size, 
-                        embeddings=self.embeddings,
+                        embeddings=self.pretrained_embeddings,
                         hidden_size=self.hidden_size, mlp_size=self.mlp_size,
                         dropout_rate=self.dropout_rate, device=self.device),
             'state_dict': self.state_dict()      
