@@ -147,8 +147,12 @@ class NLIModel(nn.Module):
     def load(model_path):
         """
         load a saved neural model
+        @param model_path (str): path to model
+        @return model (NLIModel)
         """
         params = torch.load(model_path, map_location=lambda storage, loc: storage)
         args = params['args']
         model = NLIModel(vocab=params['vocab'], **args)
         model.load_state_dict(params['state_dict'])
+
+        return model
