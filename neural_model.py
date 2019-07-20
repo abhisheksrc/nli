@@ -21,7 +21,8 @@ class NeuralModel(nn.Module):
         @param dropout_rate (float): dropout prob
         """
         super(NeuralModel, self).__init__()
-        self.embeddings = ModelEmbeddings(vocab, embed_size, embeddings)
+        self.pretrained_embeddings = embeddings
+        self.embeddings = ModelEmbeddings(vocab, embed_size, self.pretrained_embeddings)
         self.device = device
         self.vocab = vocab
         self.hidden_size = hidden_size
@@ -112,7 +113,7 @@ class NeuralModel(nn.Module):
         params = {
             'vocab' : self.vocab,
             'args' : dict(embed_size=self.embeddings.embed_size, 
-                        embeddings=self.embeddings,
+                        embeddings=self.pretrained_embeddings,
                         hidden_size=self.hidden_size, num_layers=self.num_layers,
                         dropout_rate=self.dropout_rate, device=self.device),
             'state_dict': self.state_dict()      
@@ -123,9 +124,12 @@ class NeuralModel(nn.Module):
     def load(model_path):
         """
         load a saved neural model
+        @param model_path (str): path to model
+        @return model (NeuralModel)
         """
         params = torch.load(model_path, map_location=lambda storage, loc: storage)
         args = params['args']
         model = NeuralModel(vocab=params['vocab'], **args)
         model.load_state_dict(params['state_dict'])
 
+        return model
