@@ -21,6 +21,8 @@ Options:
     --clip-grad=<float>                 grad clip [default: 5.0]
     --lr=<float>                        learning rate [default: 0.001]
     --dropout=<float>                   dropout rate [default: 0.3]
+    --beam-size=<int>                   beam size [default: 2]
+    --max-decoding-time-step=<int>      max decoding time steps [default: 70]
     --save-model-to=<file>              save trained model [default: _model.pt]
 """
 from __future__ import division
@@ -41,6 +43,31 @@ from neural_model import NeuralModel
 from nli_model import NLIModel
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+def evaluate(args, model, prems, label):
+    """ 
+    Evaluate the model on the data
+    @param args (dict): command line args
+    @param model (NeuralModel): Neural Model
+    @param prems (list[list[str]]): list of prems
+    @param label (str): hyp label to generate
+    @return TODO
+    """
+    was_training = model.training
+    model.eval()
+    
+    hyps = []
+    with torch.no_grad():
+         for prem in prems:
+            possible_hyps = model.beam_search(prem, 
+                beam_size=int(args['--beam-size']),
+                max_decoding_time_step=int(args['max-decoding-time-step']))
+            hyps.append(possible_hyps)
+
+    if was_training:
+        model.train()
+
+    #return TODO
 
 def train_lg_model(args, vocab, embeddings, train_data, label):
     """
@@ -92,6 +119,8 @@ def train_lg_model(args, vocab, embeddings, train_data, label):
         #reset epoch progress vars
         total_loss = .0
         total_hyp_words = 0
+
+        #perform validation
 
 def train(args):
     """
