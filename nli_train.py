@@ -18,10 +18,9 @@ Options:
     --patience=<int>                    wait for how many epochs to exit training [default: 5]
     --batch-size=<int>                  batch size [default: 32]
     --embed-size=<int>                  word embed_dim [default: 300]
-    --hidden-size=<int>                 hidden dim [default: 256]
+    --hidden-size=<int>                 hidden dim [default: 512]
     --mlp-hidden-size=<int>             mlp hidden dim [default: 1600]
     --num-layers=<int>                  number of layers [default: 3]
-    --clip-grad=<float>                 grad clip [default: 5.0]
     --lr=<float>                        learning rate [default: 2e-4]
     --dropout=<float>                   dropout rate [default: 0.1]
     --save-model-to=<file>              save trained model [default: nli_model.pt]
@@ -91,7 +90,6 @@ def train(args):
     train NLI model
     @param args (dict): command line args
     """
-    clip_grad = float(args['--clip-grad'])
     vocab = Vocab.load(args['--vocab-file'])
     embeddings = loadEmbeddings(vocab, args['--word-embeddings'], device)
 
@@ -115,7 +113,7 @@ def train(args):
     optimizer = torch.optim.Adam(model.parameters(), init_lr)
 
     total_loss = prev_dev_loss = .0
-    hist_dev_losses = []
+    hist_dev_scores = []
     prev_dev_acc = 0
     patience = 0
 
@@ -138,7 +136,6 @@ def train(args):
 
             loss.backward()
 
-            #grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), clip_grad)
             optimizer.step()
             
             batch_losses_val = batch_loss.item()
@@ -152,8 +149,8 @@ def train(args):
 
         #perform validation
         dev_loss, dev_acc = evaluate(model, dev_data, dev_batch_size)
-        is_better = epoch == 0 or dev_loss < min(hist_dev_losses)
-        hist_dev_losses.append(dev_loss)
+        is_better = epoch == 0 or dev_acc > max(hist_dev_scores)
+        hist_dev_scores.append(dev_acc)
 
         if is_better:
             #reset patience
@@ -189,7 +186,7 @@ def test(args):
     model = NLIModel.load(args['MODEL_PATH'])
     model = model.to(device)
     test_loss, test_acc = evaluate(model, test_data, batch_size=int(args['--batch-size']))
-    print('final test accuracy= %.2f' %(test_acc))
+    print('final test accuracy= %.4f' %(test_acc))
 
 if __name__ == "__main__":
     args = docopt(__doc__)
