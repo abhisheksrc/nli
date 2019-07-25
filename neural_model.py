@@ -11,13 +11,12 @@ class NeuralModel(nn.Module):
     Bi-LSTM encoder
     LSTM decoder
     """
-    def __init__(self, vocab, embed_size, embeddings, hidden_size, num_layers, dropout_rate, device):
+    def __init__(self, vocab, embed_size, embeddings, hidden_size, dropout_rate, device):
         """
         @param vocab (Vocab): vocab object
         @param embed_size (int): embedding size
         @param embeddings (torch.tensor (len(vocab), embed_dim)): pretrained word embeddings
         @param hidden_size (int): hidden size
-        @param num_layers (int): num layers
         @param dropout_rate (float): dropout prob
         """
         super(NeuralModel, self).__init__()
@@ -26,12 +25,11 @@ class NeuralModel(nn.Module):
         self.device = device
         self.vocab = vocab
         self.hidden_size = hidden_size
-        self.num_layers = num_layers
         self.dropout_rate = dropout_rate
 
         self.vocab_projection = nn.Linear(self.hidden_size*2, len(self.vocab), bias=False)
 
-        self.encoder = nn.LSTM(input_size=embed_size, hidden_size=self.hidden_size, num_layers=self.num_layers, bias=True, bidirectional=True)
+        self.encoder = nn.LSTM(input_size=embed_size, hidden_size=self.hidden_size, bias=True, bidirectional=True)
 
         self.decoder = nn.LSTMCell(input_size=embed_size, hidden_size=self.hidden_size*2)
 
@@ -49,9 +47,6 @@ class NeuralModel(nn.Module):
         hyps_padded = self.vocab.sents2Tensor(hyps, device=self.device)
 
         enc_hiddens, dec_init_state = self.encode(prems_padded, prems_lengths)
-        #take the final layer of the decoder_init_state
-        h_d_0, c_d_0 = dec_init_state[0], dec_init_state[1]
-        dec_init_state = (h_d_0[-1], c_d_0[-1])
         hyps_predicted = self.decode(hyps_padded, dec_init_state)
         P = F.log_softmax(hyps_predicted, dim=-1)        
         
@@ -69,17 +64,15 @@ class NeuralModel(nn.Module):
         @param prems (torch.tensor(max_prem_len, batch))
         @param prems_lens (list[int]): list of actual lengths of the prems
         @return enc_hiddens (torch.tensor(max_prem_len, batch, hidden*2)): tensor of seq of hidden outs
-        @return dec_init_state (tuple(torch.tensor(num-layers, batch, hidden*2), torch.tensor(num-layers, batch, hidden*2))): encoders final hidden state and cell i.e. decoders initial hidden state and cell
+        @return dec_init_state (tuple(torch.tensor(batch, hidden*2), torch.tensor(batch, hidden*2))): encoders final hidden state and cell i.e. decoders initial hidden state and cell
         """
         X = self.embeddings(prems)
         X = rnn.pack_padded_sequence(X, prems_lens)
         enc_hiddens, (h_e, c_e) = self.encoder(X)
         enc_hiddens, prems_lens_tensor = rnn.pad_packed_sequence(enc_hiddens)
         batch = prems.shape[1]
-        h_e_expand = h_e.view(self.num_layers, 2, batch, self.hidden_size) 
-        c_e_expand = c_e.view(self.num_layers, 2, batch, self.hidden_size)
-        h_e_cat = torch.cat((h_e_expand[:, 0, :, :], h_e_expand[:, 1, :, :]), dim=2).to(self.device)
-        c_e_cat = torch.cat((c_e_expand[:, 0, :, :], c_e_expand[:, 1, :, :]), dim=2).to(self.device)
+        h_e_cat = torch.cat((h_e[0, :, :], h_e[1, :, :]), dim=1).to(self.device)
+        c_e_cat = torch.cat((c_e[0, :, :], c_e[1, :, :]), dim=1).to(self.device)
         return enc_hiddens, (h_e_cat, c_e_cat)
         
     def decode(self, hyps, dec_init_state):
@@ -106,6 +99,16 @@ class NeuralModel(nn.Module):
         hyps_predicted = self.vocab_projection(hidden_outs)
         return hyps_predicted
 
+    def beam_search(self, prem, beam_size, max_decoding_time_step):
+        """
+        given a premise generate possible hyps, from this LG model, up to the beam size
+        @param prem (list[str]): premise
+        @param beam_size (int)
+        @param max_decoding_time_step (int): decode the hyp until <eos> or max decoding time step
+        @return possible_hyps (list[list[str]]): generate beam_size number of hyps
+        """
+        #TODO
+
     def save(self, file_path):
         """
         saving model to the file_path
@@ -114,7 +117,7 @@ class NeuralModel(nn.Module):
             'vocab' : self.vocab,
             'args' : dict(embed_size=self.embeddings.embed_size, 
                         embeddings=self.pretrained_embeddings,
-                        hidden_size=self.hidden_size, num_layers=self.num_layers,
+                        hidden_size=self.hidden_size,
                         dropout_rate=self.dropout_rate, device=self.device),
             'state_dict': self.state_dict()      
         }

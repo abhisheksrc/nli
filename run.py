@@ -17,7 +17,6 @@ Options:
     --batch-size=<int>                  batch size [default: 16]
     --embed-size=<int>                  word embed_dim [default: 300]
     --hidden-size=<int>                 hidden dim [default: 256]
-    --num-layers=<int>                  number of layers [default: 1]
     --clip-grad=<float>                 grad clip [default: 5.0]
     --lr=<float>                        learning rate [default: 0.001]
     --dropout=<float>                   dropout rate [default: 0.3]
@@ -84,7 +83,6 @@ def train_lg_model(args, vocab, embeddings, train_data, label):
 
     model = NeuralModel(vocab, int(args['--embed-size']), embeddings,
                         hidden_size=int(args['--hidden-size']),
-                        num_layers=int(args['--num-layers']),
                         dropout_rate=float(args['--dropout']), device=device)
     model = model.to(device)
 
