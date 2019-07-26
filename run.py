@@ -19,7 +19,7 @@ Options:
     --embed-size=<int>                  word embed_dim [default: 300]
     --hidden-size=<int>                 hidden dim [default: 256]
     --clip-grad=<float>                 grad clip [default: 5.0]
-    --lr=<float>                        learning rate [default: 1e-4]
+    --lr=<float>                        learning rate [default: 1e-3]
     --dropout=<float>                   dropout rate [default: 0.3]
     --beam-size=<int>                   beam size [default: 2]
     --max-decoding-time-step=<int>      max decoding time steps [default: 70]
@@ -47,6 +47,9 @@ from nli_train import evaluate as nli_evaluate
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+nli_model = NLIModel.load(args['NLI_MODEL_PATH'])
+nli_model = nli_model.to(device)
+
 def evaluate(args, model, prems, label):
     """ 
     Evaluate the model on the data
@@ -73,8 +76,6 @@ def evaluate(args, model, prems, label):
         model.train()
 
     nli_data = []
-    nli_model = NLIModel.load(args['NLI_MODEL_PATH'])
-    nli_model = nli_model.to(device)
 
     for prem, hyp in zip(prems, hyps):
         nli_data.append((prem, hyp, label))
