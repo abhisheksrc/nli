@@ -14,7 +14,7 @@ Options:
     --vocab-file=<file>                 vocab json [default: vocab.json]
     --word-embeddings=<file>            word_vecs [default: ../data/wiki-news-300d-1M.txt]
     --max-epoch=<int>                   max epoch [default: 15]
-    --patience=<int>                    wait for how many epochs to exit training [default: 2]
+    --patience=<int>                    wait for how many epochs to exit training [default: 5]
     --batch-size=<int>                  batch size [default: 32]
     --embed-size=<int>                  word embed_dim [default: 300]
     --hidden-size=<int>                 hidden dim [default: 256]
@@ -47,9 +47,6 @@ from nli_train import evaluate as nli_evaluate
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-NLI_MODEL = NLIModel.load(args['NLI_MODEL_PATH'])
-NLI_MODEL = NLI_MODEL.to(device)
-
 def evaluate(args, model, prems, label):
     """ 
     Evaluate the model on the data
@@ -76,11 +73,13 @@ def evaluate(args, model, prems, label):
         model.train()
 
     nli_data = []
+    nli_model = NLIModel.load(args['NLI_MODEL_PATH'])
+    nli_model = nli_model.to(device)
 
     for prem, hyp in zip(prems, hyps):
         nli_data.append((prem, hyp, label))
 
-    nli_class_loss, nli_class_acc = nli_evaluate(NLI_MODEL, nli_data, batch_size=int(args['--batch-size']))
+    nli_class_loss, nli_class_acc = nli_evaluate(nli_model, nli_data, batch_size=int(args['--batch-size']))
 
     return hyps, nli_class_loss, nli_class_acc
 
