@@ -47,8 +47,8 @@ from nli_train import evaluate as nli_evaluate
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-nli_model = NLIModel.load(args['NLI_MODEL_PATH'])
-nli_model = nli_model.to(device)
+NLI_MODEL = NLIModel.load(args['NLI_MODEL_PATH'])
+NLI_MODEL = NLI_MODEL.to(device)
 
 def evaluate(args, model, prems, label):
     """ 
@@ -80,7 +80,7 @@ def evaluate(args, model, prems, label):
     for prem, hyp in zip(prems, hyps):
         nli_data.append((prem, hyp, label))
 
-    nli_class_loss, nli_class_acc = nli_evaluate(nli_model, nli_data, batch_size=int(args['--batch-size']))
+    nli_class_loss, nli_class_acc = nli_evaluate(NLI_MODEL, nli_data, batch_size=int(args['--batch-size']))
 
     return hyps, nli_class_loss, nli_class_acc
 
