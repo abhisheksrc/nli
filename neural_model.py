@@ -147,7 +147,7 @@ class NeuralModel(nn.Module):
                 hyp_word = self.vocab.id2word[hyp_word_id]
                 new_hyp_sent = hyps[prev_hyp_id] + [hyp_word]
                 if hyp_word == '<eos>':
-                    completed_hyps.append(new_hyp_sent[1:-1], top_word_score)
+                    completed_hyps.append((new_hyp_sent[1:-1], top_word_score))
                 else:
                     new_hyps.append(new_hyp_sent)
                     live_hyp_ids.append(prev_hyp_id)
@@ -162,11 +162,12 @@ class NeuralModel(nn.Module):
 
             t += 1
         #end-while
+        #in this case best_hyp is not guaranteed
         if len(completed_hyps) == 0:
-            completed_hyps.append(hyps[0][1:], hyp_scores[0].item())
+            completed_hyps.append((hyps[0][1:], hyp_scores[0].item()))
 
         completed_hyps.sort(key=lambda (hyp, score): score, reverse=True)
-        return completed_hyps[0]
+        return completed_hyps[0][0]
 
     def save(self, file_path):
         """
