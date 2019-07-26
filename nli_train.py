@@ -112,9 +112,8 @@ def train(args):
     init_lr = float(args['--lr'])
     optimizer = torch.optim.Adam(model.parameters(), init_lr)
 
-    total_loss = prev_dev_loss = .0
+    total_loss = .0
     hist_dev_scores = []
-    prev_dev_acc = 0
     patience = 0
 
     begin_time = time.time()
@@ -172,10 +171,6 @@ def train(args):
         lr = init_lr / 2 ** (epoch // 2)
         for param_group in optimizer.param_groups:
             param_group['lr'] = lr
-
-        #update prev loss and acc
-        prev_dev_loss = dev_loss
-        prev_dev_acc = dev_acc
 
 def test(args):
     """
