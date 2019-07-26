@@ -190,3 +190,14 @@ def compareLabels(predicted, gold):
         if pred_label_index == labels_map[gold[i]]:
             num_matches += 1
     return num_matches
+
+def save_generated_hyps(file_path, prems, hyps):
+    """
+    save each generated hyp by the Neural model for each given prem
+    @param file_path (str): /path/save/generated/hyp
+    @param prems (list[list[str]]): given prems
+    @param hyps (list[list[str]]): generated hyps
+    """
+    with open(file_path, 'w') as file_obj:
+        for prem, hyp in zip(prems, hyps):
+            file_obj.write(' '.join(prem) + '\t' + ' '.join(hyp) + '\n')
