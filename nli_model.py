@@ -54,28 +54,28 @@ class NLIModel(nn.Module):
         @param hyps (list[list[str]]): batches of hypothesis (list[str])
         @return outs (torch.Tensor(batch-size, 3)): log-likelihod of 3-labels
         """
-        prems_lengths = [len(prem) for prem in prems]
-        prems_padded = self.vocab.sents2Tensor(prems, device=self.device)
+        prem_lengths = [len(prem) for prem in prems]
+        prem_padded = self.vocab.sents2Tensor(prems, device=self.device)
 
-        prems_enc_out = self.encode(prems_padded, prems_lengths)
+        prem_enc_out = self.encode(prem_padded, prem_lengths)
 
         #reverse sort hyps and save original lengths and index mapping:
         #   map: indices_sorted -> indices_orig
-        hyps_lengths_orig = [len(hyp) for hyp in hyps]
-        hyps_sorted, orig_to_sorted = sortHyps(hyps)
-        hyps_lengths_sorted = [len(hyp) for hyp in hyps_sorted]
-        hyps_padded = self.vocab.sents2Tensor(hyps_sorted, device=self.device)
+        hyp_lengths_orig = [len(hyp) for hyp in hyps]
+        hyp_sorted, orig_to_sorted = sortHyps(hyps)
+        hyp_lengths_sorted = [len(hyp) for hyp in hyp_sorted]
+        hyp_padded = self.vocab.sents2Tensor(hyp_sorted, device=self.device)
 
-        hyps_enc_out = self.encode(hyps_padded, hyps_lengths_sorted)
-        hyps_enc_out_seq_orig = [hyps_enc_out[:, orig_to_sorted[i], :].unsqueeze(dim=1) 
+        hyp_enc_out = self.encode(hyp_padded, hyp_lengths_sorted)
+        hyp_enc_out_seq_orig = [hyp_enc_out[:, orig_to_sorted[i], :].unsqueeze(dim=1) 
                                     for i in range(len(hyps))]
-        hyps_enc_out_orig = torch.cat(hyps_enc_out_seq_orig, dim=1)
+        hyp_enc_out_orig = torch.cat(hyp_enc_out_seq_orig, dim=1)
 
         #max pooling and classifier
-        prems_enc_final = self.maxPool(prems_enc_out, prems_lengths)
-        hyps_enc_final = self.maxPool(hyps_enc_out_orig, hyps_lengths_orig)
+        prem_enc_final = self.maxPool(prem_enc_out, prem_lengths)
+        hyp_enc_final = self.maxPool(hyp_enc_out_orig, hyp_lengths_orig)
         
-        classifier_features = torch.cat([prems_enc_final, hyps_enc_final, torch.abs(prems_enc_final - hyps_enc_final), prems_enc_final * hyps_enc_final], dim=-1)
+        classifier_features = torch.cat([prem_enc_final, hyp_enc_final, torch.abs(prem_enc_final - hyp_enc_final), prem_enc_final * hyp_enc_final], dim=-1)
         
         outs = self.classifier(classifier_features)
         return outs 
