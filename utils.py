@@ -86,9 +86,9 @@ def extractPairCorpus(file_path):
 
 def extractSentLabel(file_path):
     """
-    build list of (prem, hyp)
+    build list of (prem, hyp, label)
     @param file_path (str): /path/corpus
-    @return (prems, hyps, labels) (list[tuple(prems, hyps, labels)])
+    @return (prems, hyps, labels) (list[tuple(prem, hyp, label)])
     """
     data = []
     for line in open(file_path, 'r'):
@@ -190,6 +190,16 @@ def compareLabels(predicted, gold):
         if pred_label_index == labels_map[gold[i]]:
             num_matches += 1
     return num_matches
+
+def extractPrems(file_path, specific_label):
+    """
+    extract prems from the corpus for a specific label
+    @param file_path (str): /path/corpus
+    @param specific_label (str): provided label
+    @return prems (lis[list[str]]): extracted prems
+    """
+    data = extractSentLabel(file_path)
+    return [prem for (prem, hyp, label) in data if label == specific_label]
 
 def save_generated_hyps(file_path, prems, hyps):
     """
