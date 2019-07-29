@@ -10,7 +10,7 @@ Options:
     -h --help                           show this screen.
     --train-file=<file>                 train_corpus
     --dev-file=<file>                   dev_corpus
-    --save-generated-hyp-to=<file>      save generated hyp [default: _lg_result.txt]              
+    --save-generated-hyp-to=<file>      save generated hyp [default: _lg_result_att.txt]              
     --vocab-file=<file>                 vocab json [default: vocab.json]
     --word-embeddings=<file>            word_vecs [default: ../data/wiki-news-300d-1M.txt]
     --max-epoch=<int>                   max epoch [default: 15]
@@ -21,9 +21,9 @@ Options:
     --clip-grad=<float>                 grad clip [default: 5.0]
     --lr=<float>                        learning rate [default: 1e-3]
     --dropout=<float>                   dropout rate [default: 0.3]
-    --beam-size=<int>                   beam size [default: 2]
+    --beam-size=<int>                   beam size [default: 5]
     --max-decoding-time-step=<int>      max decoding time steps [default: 70]
-    --save-model-to=<file>              save trained model [default: _model.pt]
+    --save-model-to=<file>              save trained model [default: _model_att_b5.pt]
 """
 from __future__ import division
 
@@ -110,7 +110,7 @@ def train_lg_model(args, vocab, embeddings, train_data, label):
     dev_prems = extractPrems(args['--dev-file'], specific_label=label)
     generated_hyp_path = label + args['--save-generated-hyp-to']
 
-    hist_dev_scores = []
+    hist_dev_losses = []
     patience = 0
 
     begin_time = time.time()
@@ -142,8 +142,8 @@ def train_lg_model(args, vocab, embeddings, train_data, label):
 
         #perform validation
         dev_hyps, dev_loss, dev_acc =evaluate(args, model, dev_prems, label)
-        is_better = epoch == 0 or dev_acc > max(hist_dev_scores)
-        hist_dev_scores.append(dev_acc)
+        is_better = epoch == 0 or dev_loss < min(hist_dev_losses)
+        hist_dev_losses.append(dev_loss)
 
         if is_better:
             #reset patience
