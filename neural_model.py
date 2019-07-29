@@ -27,7 +27,7 @@ class NeuralModel(nn.Module):
         self.hidden_size = hidden_size
         self.dropout_rate = dropout_rate
 
-        self.vocab_projection = nn.Linear(self.hidden_size*2, len(self.vocab), bias=False)
+        self.vocab_projection = nn.Linear(self.hidden_size*4, len(self.vocab), bias=False)
 
         self.encoder = nn.LSTM(input_size=embed_size, hidden_size=self.hidden_size, bias=True, bidirectional=True)
 
@@ -47,7 +47,9 @@ class NeuralModel(nn.Module):
         hyp_padded = self.vocab.sents2Tensor(hyps, device=self.device)
 
         enc_hiddens, dec_init_state = self.encode(prem_padded, prem_lengths)
-        hyp_predicted = self.decode(hyp_padded, dec_init_state)
+        enc_masks = self.generate_sent_masks(enc_hiddens, prem_lengths)
+        
+        hyp_predicted = self.decode(hyp_padded, dec_init_state, enc_hiddens, enc_masks)
         P = F.log_softmax(hyp_predicted, dim=-1)        
         
         #create mask to zero out probability for the pad tokens
@@ -63,7 +65,7 @@ class NeuralModel(nn.Module):
         apply the encoder on the premises to obtain encoder hidden states
         @param prems (torch.tensor(max_prem_len, batch))
         @param prem_lens (list[int]): list of actual lengths of the prems
-        @return enc_hiddens (torch.tensor(max_prem_len, batch, hidden*2)): tensor of seq of hidden outs
+        @return enc_hiddens (torch.tensor(batch, max_prem_len, hidden*2)): tensor of seq of hidden outs
         @return dec_init_state (tuple(torch.tensor(batch, hidden*2), torch.tensor(batch, hidden*2))): encoders final hidden state and cell i.e. decoders initial hidden state and cell
         """
         X = self.embeddings(prems)
@@ -74,31 +76,68 @@ class NeuralModel(nn.Module):
         #h_e.shape = (2, b, h)
         h_e_cat = torch.cat((h_e[0, :, :], h_e[1, :, :]), dim=1).to(self.device)
         c_e_cat = torch.cat((c_e[0, :, :], c_e[1, :, :]), dim=1).to(self.device)
+        #permute dim of enc_hiddens for batch_first
+        enc_hiddens = enc_hiddens.permute(1, 0, 2)
         return enc_hiddens, (h_e_cat, c_e_cat)
         
-    def decode(self, hyps, dec_init_state):
+    def decode(self, hyps, dec_init_state, enc_hiddens, enc_masks):
         """
         @param hyps (torch.tensor(max_hyp_len, batch))
         @param dec_init_state (tuple(torch.tensor(batch, hidden*2), torch.tensor(batch, hidden*2))): h_decoder_0, c_decoder_0
+        @param enc_hiddens (torch.tensor(b, max_enc_len, h*2))
+        @param enc_masks (torch.tensor(b, max_enc_len))
         @return hyp_predicted (torch.tensor(max_hyp_len-1, batch, vocab)): batch of seq of hyp words
         """
         #Chop the last token from all the hyps
         hyps = hyps[:-1]
         
         Y = self.embeddings(hyps)
+
         (h_t, c_t) = dec_init_state
 
         hidden_outs = []
-        batch_size = hyps.shape[1]
-
         for y_t in torch.split(Y, split_size_or_sections=1, dim=0):
             y_t = torch.squeeze(y_t, dim=0)#shape(1, b, e) -> (b, e)
-            h_t, c_t = self.decoder(y_t, (h_t, c_t))
-            hidden_outs.append(h_t)
+            (h_t, c_t), o_t = self.step(y_t, (h_t, c_t), enc_hiddens, enc_masks)
+            hidden_outs.append(o_t)
 
         hidden_outs = torch.stack(hidden_outs, dim=0)
         hyp_predicted = self.vocab_projection(hidden_outs)
         return hyp_predicted
+
+    def step(self, y_t, dec_state, enc_hiddens, enc_masks):
+        """
+        @param y_t (torch.tensor(b, e)): decoder input at t
+        @param dec_state (tuple(torch.tensor(b, h*2), torch.tensor(b, h*2)))
+        @param enc_hiddens (torch.tensor(b, max_enc_len, h*2))
+        @param enc_masks (torch.tensor(b, max_enc_len))
+        @return dec_next_state (tuple(torch.tensor(b, h*2), torch.tensor(b, h*2))): decoder next hidden and cell state
+        @return o_t (torch.tensor(b, h*4)): decoder output at t
+        """
+        dec_next_state = self.decoder(y_t, dec_state)
+        (h_t, c_t) = dec_next_state
+        #attention scores
+        e_t = torch.bmm(enc_hiddens, h_t.unsqueeze(-1)).squeeze(-1)
+        #filling -inf to e_t where enc_masks has 1
+        if enc_masks is not None:
+            e_t.data.masked_fill_(enc_masks.byte(), -float('inf')) 
+        
+        a_t = F.softmax(e_t, dim=-1) #(b, max_enc_len)
+        o_t = torch.bmm(a_t.unsqueeze(1), enc_hiddens).squeeze(1) #(b, h*2)
+        o_t = torch.cat((h_t, o_t), dim=-1) #(b, h*4)
+        
+        return dec_next_state, o_t
+
+    def generate_sent_masks(self, enc_hiddens, sent_lens):
+        """
+        @param enc_hiddens (torch.tensor(b, max_enc_len, h*2))
+        @param sent_lens (list[int]): original len of the sentences
+        @return enc_masks (torch.tensor(b, max_enc_len))
+        """
+        enc_masks = torch.zeros(enc_hiddens.shape[0], enc_hiddens.shape[1], dtype=torch.float, device=self.device)
+        for i, sent_len in enumerate(sent_lens):
+            enc_masks[i, sent_len:] = 1
+        return enc_masks
 
     def beam_search(self, prem, beam_size, max_decoding_time_step):
         """
@@ -122,11 +161,13 @@ class NeuralModel(nn.Module):
 
         (h_t, c_t) = dec_init_state
         while len(completed_hyps) < beam_size and t < max_decoding_time_step:
+            hyp_num = len(hyps)
             y_t = torch.tensor([self.vocab[hyp[-1]] for hyp in hyps], dtype=torch.long, device=self.device)
             y_t = self.embeddings(y_t)
-            h_t, c_t = self.decoder(y_t, (h_t, c_t))
+            enc_hiddens_batch = enc_hiddens.expand(hyp_num, enc_hiddens.shape[1], enc_hiddens.shape[2])
+            (h_t, c_t), o_t = self.step(y_t, (h_t, c_t), enc_hiddens_batch, enc_masks=None)
 
-            log_p_t = F.log_softmax(self.vocab_projection(h_t), dim=-1)
+            log_p_t = F.log_softmax(self.vocab_projection(o_t), dim=-1)
             
             live_hyp_num = beam_size - len(completed_hyps)
             live_hyp_scores = (hyp_scores.unsqueeze(1).expand_as(log_p_t) + log_p_t).view(-1) #shape = live_hyp_num * len(vocab)
