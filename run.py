@@ -4,13 +4,13 @@ run.py: run script for NLI LG Model
 Abhishek Sharma <sharm271@cs.purdue.edu>
 
 Usage:
-    run.py train NLI_MODEL_PATH --train-file=<file> --dev-file=<file> [options]
+    run.py train --train-file=<file> --dev-file=<file> [options]
 
 Options:
     -h --help                           show this screen.
     --train-file=<file>                 train_corpus
     --dev-file=<file>                   dev_corpus
-    --save-generated-hyp-to=<file>      save generated hyp [default: _lg_result_att.txt]              
+    --save-generated-hyp-to=<file>      save generated hyp [default: _lg_result_att_longest.txt]              
     --vocab-file=<file>                 vocab json [default: vocab.json]
     --word-embeddings=<file>            word_vecs [default: ../data/wiki-news-300d-1M.txt]
     --max-epoch=<int>                   max epoch [default: 15]
@@ -23,7 +23,7 @@ Options:
     --dropout=<float>                   dropout rate [default: 0.3]
     --beam-size=<int>                   beam size [default: 5]
     --max-decoding-time-step=<int>      max decoding time steps [default: 70]
-    --save-model-to=<file>              save trained model [default: _model_att_b5.pt]
+    --save-model-to=<file>              save trained model [default: _model_att_b5_longest.pt]
 """
 from __future__ import division
 
@@ -31,65 +31,90 @@ import time
 import math
 
 import torch
+import torch.nn.functional as F
 
 from docopt import docopt
 
 from utils import loadEmbeddings
 from utils import extractPairCorpus
-from utils import extractPrems
 from utils import batch_iter
 from utils import save_generated_hyps
 from vocab import Vocab
 
 from neural_model import NeuralModel
-from nli_model import NLIModel
-from nli_train import evaluate as nli_evaluate
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-def evaluate(args, model, prems, label):
+def evaluate(args, data, model, vocab, embeddings):
     """ 
     Evaluate the model on the data
     @param args (dict): command line args
+    @param data (list(tuple)): list of (prem, hyp) pairs
     @param model (NeuralModel): Neural Model
-    @param prems (list[list[str]]): list of prems
-    @param label (str): hyp label to generate
-    @return hyps (list[list[str]]): list of hyps
-    @return nli_class_loss (float): NLI classification loss
-    @return nli_class_acc (float): NLI classification accuracy
+    @param vocab (Vocab): Vocab class obj
+    @param embeddings (torch.tensor(len(vocab), embed_dim)): pretrained word embeddings
+    @return gen_hyps (list[list[str]]): list of gen hyps
+    @return eval_loss (float): eval loss on the data
     """
     was_training = model.training
     model.eval()
     
-    hyps = []
+    gen_hyps = []
+    data_hyps = []
     with torch.no_grad():
-         for prem in prems:
-            possible_hyp = model.beam_search(prem, 
+         for prem, hyp in data:
+            gen_hyp = model.beam_search(prem, 
                 beam_size=int(args['--beam-size']),
                 max_decoding_time_step=int(args['--max-decoding-time-step']))
-            hyps.append(possible_hyp)
+            gen_hyps.append(gen_hyp)
+            data_hyps.append(hyp)
 
     if was_training:
         model.train()
 
-    nli_data = []
-    nli_model = NLIModel.load(args['NLI_MODEL_PATH'])
-    nli_model = nli_model.to(device)
+    eval_data = []
+    for gen_hyp, data_hyp in zip(gen_hyps, data_hyps):
+        if len(gen_hyp) > 0 and len(data_hyp) > 0:
+            eval_data.append((gen_hyp, data_hyp))
 
-    for prem, hyp in zip(prems, hyps):
-        nli_data.append((prem, hyp, label))
+    num_empty_gen_hyp = len(gen_hyps) - len(eval_data)
+    if num_empty_gen_hyp > 0:
+        print('generated %d empty hypothesis' %(num_empty_gen_hyp))
 
-    nli_class_loss, nli_class_acc = nli_evaluate(nli_model, nli_data, batch_size=int(args['--batch-size']))
+    eval_loss = eval_avg_sim(eval_data, vocab, embeddings)
+    return hyps, eval_loss
 
-    return hyps, nli_class_loss, nli_class_acc
-
-def train_lg_model(args, vocab, embeddings, train_data, label):
+def eval_avg_sim(data, vocab, embeddings):
+    """
+    Eval cosine sim for sent pairs by averaging sent word embedding
+    @param data (list(tuple)): list of (sent1, sent2) pairs
+    @param vocab (Vocab): Vocab class obj
+    @param embeddings (torch.tensor(len(vocab), embed_dim)): pretrained word embeddings
+    @return loss (float): loss on sent similarity
+    """
+    total_loss = .0
+    for sent1, sent2 in data:
+        sent1_ids = vocab.words2indices(sent1)
+        sent1_ids = torch.tensor(sent1_ids, dtype=torch.long, device=device)
+        sent2_ids = vocab.words2indices(sent2)
+        sent2_ids = torch.tensor(sent2_ids, dtype=torch.long, device=device)
+        sent1_embed = embeddings[sent1_ids]
+        sent1_embed = torch.mean(sent1_embed, dim=-1)
+        sent2_embed = embeddings[sent2_ids]
+        sent2_embed = torch.mean(sent2_embed, dim=-1)
+        sim = F.cosine_similarity(sent1_embed, sent2_embed, dim=-1)
+        loss = 1 - sim.item()
+        total_loss += loss
+    return total_loss / len(data)
+        
+def train_lg_model(args, vocab, embeddings, train_data, dev_data, label):
     """
     train LG model on the specific label
     @param args (dict): command line args
     @param vocab (Vocab): Vocab class obj
     @param embeddings (torch.tensor(len(vocab), embed_dim)): pretrained word embeddings
-    @param train_data (list[tuple]): list of sent pairs containing premise and hypothesis
+    @param train_data (list[tuple]): list of train (prem, hyp) pairs
+    @param dev_data (lis(tuple)): list of dev (prem, hyp) pairs
     @param label (str): hyp label    
     """
     train_batch_size = int(args['--batch-size'])
@@ -98,7 +123,7 @@ def train_lg_model(args, vocab, embeddings, train_data, label):
 
     model = NeuralModel(vocab, int(args['--embed-size']), embeddings,
                         hidden_size=int(args['--hidden-size']),
-                        dropout_rate=float(args['--dropout']), device=device)
+                        dropout_rate=float(args['--dropout']))
     model = model.to(device)
 
     init_lr = float(args['--lr'])
@@ -107,7 +132,6 @@ def train_lg_model(args, vocab, embeddings, train_data, label):
     total_loss = .0
     total_hyp_words = 0
 
-    dev_prems = extractPrems(args['--dev-file'], specific_label=label)
     generated_hyp_path = label + args['--save-generated-hyp-to']
 
     hist_dev_losses = []
@@ -141,7 +165,7 @@ def train_lg_model(args, vocab, embeddings, train_data, label):
         total_hyp_words = 0
 
         #perform validation
-        dev_hyps, dev_loss, dev_acc =evaluate(args, model, dev_prems, label)
+        dev_hyps, dev_loss = evaluate(args, dev_data, model, vocab, embeddings)
         is_better = epoch == 0 or dev_loss < min(hist_dev_losses)
         hist_dev_losses.append(dev_loss)
 
@@ -156,12 +180,12 @@ def train_lg_model(args, vocab, embeddings, train_data, label):
         else:
             patience += 1
             if patience == int(args['--patience']):
-                print('finishing training: dev loss = %.2f, dev acc. = %.2f'
-                    % (dev_loss, dev_acc))
+                print('finishing training: dev loss = %.2f'
+                    % (dev_loss))
                 exit(0)
 
-        print('validation: dev loss = %.2f, dev acc. = %.2f'
-            % (dev_loss, dev_acc))
+        print('validation: dev loss = %.2f'
+            % (dev_loss))
 
         #update lr after every 2 epochs
         lr = init_lr / 2 ** (epoch // 2)
@@ -174,13 +198,16 @@ def train(args):
     @param args (dict): command line args
     """
     vocab = Vocab.load(args['--vocab-file'])
-    embeddings = loadEmbeddings(vocab, args['--word-embeddings'], device)
+    embeddings = loadEmbeddings(vocab, args['--word-embeddings'])
+    embeddings = embeddings.to(device)
 
     #construct set of train sent pairs for each hyp class
     entail_pairs, neutral_pais, contradict_pairs = extractPairCorpus(args['--train-file'])
+    #construct set of dev sent pars for each hyp class
+    dev_entail_pairs, dev_neutral_pairs, dev_contradict_pairs = extractPairCorpus(args['--dev-file'])
     
     #train LG model for each hyp class
-    train_lg_model(args, vocab, embeddings, train_data=entail_pairs, label='entailment')
+    train_lg_model(args, vocab, embeddings, train_data=entail_pairs, dev_data=dev_entail_pairs, label='entailment')
 
 if __name__ == "__main__":
     args = docopt(__doc__)
