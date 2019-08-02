@@ -94,6 +94,8 @@ def eval_avg_sim(data, vocab, embeddings):
     """
     total_loss = .0
     for sent1, sent2 in data:
+        sent1 = [str(word) for word in sent1]
+        sent2 = [str(word) for word in sent2]
         sent1_ids = vocab.words2indices(sent1)
         sent1_ids = torch.tensor(sent1_ids, dtype=torch.long, device=device)
         sent2_ids = vocab.words2indices(sent2)
