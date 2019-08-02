@@ -39,6 +39,7 @@ from utils import loadEmbeddings
 from utils import extractPairCorpus
 from utils import batch_iter
 from utils import save_generated_hyps
+from utils import extractPrems
 from vocab import Vocab
 
 from neural_model import NeuralModel
@@ -134,6 +135,7 @@ def train_lg_model(args, vocab, embeddings, train_data, dev_data, label):
     total_loss = .0
     total_hyp_words = 0
 
+    dev_prems = extractPrems(args['--dev-file'], label)
     generated_hyp_path = label + args['--save-generated-hyp-to']
 
     hist_dev_losses = []
