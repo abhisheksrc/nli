@@ -82,7 +82,7 @@ def evaluate(args, data, model, vocab, embeddings):
         print('generated %d empty hypothesis' %(num_empty_gen_hyp))
 
     eval_loss = eval_avg_sim(eval_data, vocab, embeddings)
-    return hyps, eval_loss
+    return gen_hyps, eval_loss
 
 def eval_avg_sim(data, vocab, embeddings):
     """
