@@ -10,7 +10,7 @@ Options:
     -h --help                           show this screen.
     --train-file=<file>                 train_corpus
     --dev-file=<file>                   dev_corpus
-    --save-generated-hyp-to=<file>      save generated hyp [default: _lg_result_att_longest.txt]              
+    --save-generated-hyp-to=<file>      save generated hyp [default: _lg_result_att.txt]
     --vocab-file=<file>                 vocab json [default: vocab.json]
     --word-embeddings=<file>            word_vecs [default: ../data/wiki-news-300d-1M.txt]
     --max-epoch=<int>                   max epoch [default: 15]
@@ -23,7 +23,7 @@ Options:
     --dropout=<float>                   dropout rate [default: 0.3]
     --beam-size=<int>                   beam size [default: 5]
     --max-decoding-time-step=<int>      max decoding time steps [default: 70]
-    --save-model-to=<file>              save trained model [default: _model_att_b5_longest.pt]
+    --save-model-to=<file>              save trained model [default: _model_att_b5.pt]
 """
 from __future__ import division
 
@@ -99,9 +99,9 @@ def eval_avg_sim(data, vocab, embeddings):
         sent2_ids = vocab.words2indices(sent2)
         sent2_ids = torch.tensor(sent2_ids, dtype=torch.long, device=device)
         sent1_embed = embeddings[sent1_ids]
-        sent1_embed = torch.mean(sent1_embed, dim=-1)
+        sent1_embed = torch.mean(sent1_embed, dim=0)
         sent2_embed = embeddings[sent2_ids]
-        sent2_embed = torch.mean(sent2_embed, dim=-1)
+        sent2_embed = torch.mean(sent2_embed, dim=0)
         sim = F.cosine_similarity(sent1_embed, sent2_embed, dim=-1)
         loss = 1 - sim.item()
         total_loss += loss
