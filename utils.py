@@ -36,7 +36,7 @@ def readCorpus(file_path):
         
     return data
 
-def loadEmbeddings(vocab, embedding_file, device):
+def loadEmbeddings(vocab, embedding_file):
     """
     construct vector for word embeddings
     loads embedding from embedding_file
@@ -63,7 +63,7 @@ def loadEmbeddings(vocab, embedding_file, device):
         if not weights[i]:
             weights[i] = np.random.rand(word_dim).tolist()
 
-    embedding_weights = torch.tensor(weights, dtype=torch.float, device=device)
+    embedding_weights = torch.tensor(weights, dtype=torch.float)
     return embedding_weights
 
 def extractPairCorpus(file_path):
