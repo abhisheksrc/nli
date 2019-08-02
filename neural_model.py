@@ -11,7 +11,7 @@ class NeuralModel(nn.Module):
     Bi-LSTM encoder
     LSTM decoder
     """
-    def __init__(self, vocab, embed_size, embeddings, hidden_size, dropout_rate, device):
+    def __init__(self, vocab, embed_size, embeddings, hidden_size, dropout_rate):
         """
         @param vocab (Vocab): vocab object
         @param embed_size (int): embedding size
@@ -22,7 +22,6 @@ class NeuralModel(nn.Module):
         super(NeuralModel, self).__init__()
         self.pretrained_embeddings = embeddings
         self.embeddings = ModelEmbeddings(vocab, embed_size, self.pretrained_embeddings)
-        self.device = device
         self.vocab = vocab
         self.hidden_size = hidden_size
         self.dropout_rate = dropout_rate
@@ -243,10 +242,17 @@ class NeuralModel(nn.Module):
             'args' : dict(embed_size=self.embeddings.embed_size, 
                         embeddings=self.pretrained_embeddings,
                         hidden_size=self.hidden_size,
-                        dropout_rate=self.dropout_rate, device=self.device),
+                        dropout_rate=self.dropout_rate),
             'state_dict': self.state_dict()      
         }
         torch.save(params, file_path)
+
+    @property
+    def device(self):
+        """
+        property decorator for device
+        """
+        return self.embeddings.embedding.weight.device
 
     @staticmethod
     def load(model_path):
