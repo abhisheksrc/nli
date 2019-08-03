@@ -39,7 +39,6 @@ from utils import loadEmbeddings
 from utils import extractPairCorpus
 from utils import batch_iter
 from utils import save_generated_hyps
-from utils import extractPrems
 from vocab import Vocab
 
 from neural_model import NeuralModel
@@ -50,7 +49,7 @@ def evaluate(args, data, model, vocab, embeddings):
     """ 
     Evaluate the model on the data
     @param args (dict): command line args
-    @param data (list(tuple)): list of (prem, hyp) pairs
+    @param data (list[tuple]): list of (prem, hyp) pairs
     @param model (NeuralModel): Neural Model
     @param vocab (Vocab): Vocab class obj
     @param embeddings (torch.tensor(len(vocab), embed_dim)): pretrained word embeddings
@@ -133,7 +132,7 @@ def train_lg_model(args, vocab, embeddings, train_data, dev_data, label):
     total_loss = .0
     total_hyp_words = 0
 
-    dev_prems = extractPrems(args['--dev-file'], label)
+    dev_prems = [prem for (prem, hyp) in dev_data]
     generated_hyp_path = label + args['--save-generated-hyp-to']
 
     hist_dev_losses = []
