@@ -231,7 +231,8 @@ class NeuralModel(nn.Module):
             completed_hyps.append((hyps[0][1:], hyp_scores[0].item()))
 
         completed_hyps.sort(key=lambda (hyp, score): score, reverse=True)
-        return completed_hyps[0][0]
+        best_hyp = [str(word) for word in completed_hyps[0][0]]
+        return best_hyp
 
     def save(self, file_path):
         """
