@@ -6,22 +6,22 @@ import math
 
 import nltk
 
-def readLine(line):
+def read_line(line):
     """
-    read line of format label\tprem\thyp\n
+    read line of format result\tsent1\tsent2\n
     @param line (str)
-    @return label, prem, hyp (tuple(str, list[str], list[str]))
+    @return result, sent1, sent2 (tuple(str, list[str], list[str]))
     """
     line = line.split('\n')[0]
     line = line.split('\t')
     
-    label = line[0]
-    prem = nltk.word_tokenize(line[1])
-    hyp = nltk.word_tokenize(line[2])
+    result = line[0]
+    sent1 = nltk.word_tokenize(line[1])
+    sent2 = nltk.word_tokenize(line[2])
 
-    return label, prem, hyp
+    return result, sent1, sent2
 
-def readCorpus(file_path):
+def read_corpus(file_path):
     """
     read file to construct a list of sentences (list[str])
     @param file_path (str): path to file containing corpus
@@ -29,14 +29,14 @@ def readCorpus(file_path):
     """
     data = []
     for line in open(file_path, 'r'):
-        label, prem, hyp = readLine(line)
+        result, sent1, sent2 = read_line(line)
 
-        data.append(prem)
-        data.append(hyp)
+        data.append(sent1)
+        data.append(sent2)
         
     return data
 
-def loadEmbeddings(vocab, embedding_file):
+def load_embeddings(vocab, embedding_file):
     """
     construct vector for word embeddings
     loads embedding from embedding_file
@@ -66,7 +66,7 @@ def loadEmbeddings(vocab, embedding_file):
     embedding_weights = torch.tensor(weights, dtype=torch.float)
     return embedding_weights
 
-def extractPairCorpus(file_path):
+def extract_pair_corpus(file_path):
     """
     build list of (prem, hyp) for each label
     @param file_path (str): /path/corpus
@@ -74,7 +74,7 @@ def extractPairCorpus(file_path):
     """
     entail_pairs, neutral_pairs, contradict_pairs = [], [], []
     for line in open(file_path, 'r'):
-        label, prem, hyp = readLine(line)
+        label, prem, hyp = read_line(line)
         hyp = ['<start>'] + hyp + ['<eos>']
         if label == 'entailment':
             entail_pairs.append((prem, hyp))
@@ -84,26 +84,25 @@ def extractPairCorpus(file_path):
             contradict_pairs.append((prem, hyp))
     return entail_pairs, neutral_pairs, contradict_pairs
 
-def extractSentLabel(file_path):
+def extract_sents_result(file_path):
     """
-    build list of (prem, hyp, label)
+    build list of (sent1, sent2, result)
     @param file_path (str): /path/corpus
-    @return (prems, hyps, labels) (list[tuple(prem, hyp, label)])
+    @return data (list[tuple(sent1, sent2, result)])
     """
     data = []
     for line in open(file_path, 'r'):
-        label, prem, hyp = readLine(line)
-        if label != '-':
-            data.append((prem, hyp, label))
+        result, sent1, sent2 = read_line(line)
+        data.append((sent1, sent2, result))
     return data
 
-def batch_iter(data, batch_size, shuffle=True, label=False):
+def batch_iter(data, batch_size, shuffle=True, result=False):
     """
-    yield batches of premise and hypothesis and label(optional) reverse sorted by length
-    @param data (list[tuple]): list of tuples (premise, hypothesis, label(optional))
+    yield batches of sent1, sent2 and result(optional) reverse sorted by sent1 length
+    @param data (list[tuple]): list of tuples (sent1, sent2, result(optional))
     @param batch_size (int)
     @param shuffle (boolean): option randomly shuffle data
-    @param label (boolean): if optional label also present in data tuples
+    @param result (boolean): if optional result also present in data tuples
     """
     batches = int(math.ceil(len(data) / batch_size))
     index_array = list(range(len(data)))
@@ -116,15 +115,15 @@ def batch_iter(data, batch_size, shuffle=True, label=False):
         batch = [data[j] for j in slice_]
 
         batch = sorted(batch, key=lambda b: len(b[0]), reverse=True)
-        prems = [b[0] for b in batch]
-        hyps = [b[1] for b in batch]
-        if not label:
-            yield prems, hyps
+        sents1 = [b[0] for b in batch]
+        sents2 = [b[1] for b in batch]
+        if not result:
+            yield sents1, sents2
         else:
-            labels = [b[2] for b in batch]
-            yield prems, hyps, labels
+            results = [b[2] for b in batch]
+            yield sents1, sents2, results
 
-def padSents(sents, pad_idx):
+def pad_sents(sents, pad_idx):
     """
     @param sents (list[list[int]]):
     @param pad_idx (int): Pad ID
@@ -140,31 +139,31 @@ def padSents(sents, pad_idx):
 
     return sents_padded
 
-def sortHyps(hyps):
+def sort_sents(sents):
     """
-    reverse sort the hyps, criteria: length
-    @param hyps (list[list[str]])
-    @return hyps_sorted (list[list[str]])
-    @return orig_to_sorted (dict): mapping hyps_indices_orig->hyps_indices_sorted
+    reverse sort the sents, criteria: length
+    @param sents (list[list[str]])
+    @return sents_sorted (list[list[str]])
+    @return orig_to_sorted (dict): mapping sents_indices_orig->sents_indices_sorted
     """
-    hyps_indices = []
-    for i, hyp in enumerate(hyps):
-        hyps_indices.append((hyp, i))
-    hyps_indices.sort(key=lambda (hyp, index): len(hyp), reverse=True)
+    sents_indices = []
+    for i, sent in enumerate(sents):
+        sents_indices.append((sent, i))
+    sents_indices.sort(key=lambda (sent, index): len(sent), reverse=True)
 
     orig_to_sorted = {}
-    hyps_sorted = []
-    for i, (hyp, index) in enumerate(hyps_indices):
+    sents_sorted = []
+    for i, (sent, index) in enumerate(sents_indices):
         orig_to_sorted[index] = i
-        hyps_sorted.append(hyp)
+        sents_sorted.append(sent)
 
-    return hyps_sorted, orig_to_sorted
+    return sents_sorted, orig_to_sorted
 
 def labels_to_indices(labels):
     """
     map NLI labels to indices and return them as Tensor
     @param labels (list[str])
-    @return labels_indices (torch.tensor(batch,))
+    @return labels_indices (torch.tensor(len(labels),))
     """
     labels_map = {'entailment' : 0,
                     'neutral': 1,
@@ -172,7 +171,7 @@ def labels_to_indices(labels):
     labels_indices = torch.tensor([labels_map[label] for label in labels], dtype=torch.long)
     return labels_indices
 
-def compareLabels(predicted, gold):
+def compare_labels(predicted, gold):
     """
     compute num matchings between the predicted and the gold
     @param predicted (torch.tensor(batch, 3)): out from the NLI Model
@@ -190,16 +189,6 @@ def compareLabels(predicted, gold):
         if pred_label_index == labels_map[gold[i]]:
             num_matches += 1
     return num_matches
-
-def extractPrems(file_path, specific_label):
-    """
-    extract prems from the corpus for a specific label
-    @param file_path (str): /path/corpus
-    @param specific_label (str): provided label
-    @return prems (lis[list[str]]): extracted prems
-    """
-    data = extractSentLabel(file_path)
-    return [prem for (prem, hyp, label) in data if label == specific_label]
 
 def save_generated_hyps(file_path, prems, hyps):
     """
