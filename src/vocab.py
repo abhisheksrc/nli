@@ -9,7 +9,7 @@ Usage:
 Options:
     -h --help                   show this screen.
     --train-file=<file>         train_corpus [default: ../data/snli_train.txt]
-    --freq-cutoff=<int>         frequency cutoff [default: 2]
+    --freq-cutoff=<int>         frequency cutoff [default: 1]
     --save-vocab-to=<file>      save vocab object [default: vocab.json]
 """
 
@@ -19,8 +19,8 @@ from itertools import chain
 import json
 import torch
 
-from utils import readCorpus
-from utils import padSents
+from utils import read_corpus
+from utils import pad_sents
 
 class Vocab(object):
     """
@@ -83,7 +83,7 @@ class Vocab(object):
         @return torch.t(out_tensor) (torch.tensor (max_sent_len, batch_size))
         """
         word_ids = self.words2indices(sents)
-        sents_padded = padSents(word_ids, self['<pad>'])
+        sents_padded = pad_sents(word_ids, self['<pad>'])
         out_tensor = torch.tensor(sents_padded, dtype=torch.long, device=device)
         return torch.t(out_tensor) #transpose since batch_first=False in our model
 
@@ -98,7 +98,7 @@ class Vocab(object):
     def build(corpus, freq_cutoff):
         """
         create Vocab object for the words in the corpus
-        @param corpus (list[list[str]]): corpus of text produced by readCorpus() function
+        @param corpus (list[list[str]]): corpus of text produced by read_corpus() function
         @param freq_cutoff (int): cutoff for droping words based on their frequency
         @return vocab (Vocab): Vocab class obj
         """
@@ -123,6 +123,6 @@ class Vocab(object):
 if __name__ == "__main__":
     args = docopt(__doc__)
 
-    train_sents = readCorpus(args['--train-file'])
+    train_sents = read_corpus(args['--train-file'])
     vocab = Vocab.build(train_sents, int(args['--freq-cutoff']))
     vocab.save(args['--save-vocab-to'])
