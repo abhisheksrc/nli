@@ -117,7 +117,8 @@ def train(args):
     for epoch in range(int(args['--max-epoch'])):
         for sents1, sents2, results in batch_iter(train_data, batch_size=train_batch_size, shuffle=True, result=True):
             optimizer.zero_grad()
-            
+   
+            results = torch.tensor(results, device=device)         
             results_pred = model(prems, hyps)
 
             loss = F.mse_loss(results_pred, results)
