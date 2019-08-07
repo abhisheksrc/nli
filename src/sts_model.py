@@ -4,16 +4,16 @@ import torch.nn as nn
 from torch.nn.utils import rnn
 import torch.nn.functional as F
 
-from utils import sortHyps
+from utils import sort_sents
 from model_embeddings import ModelEmbeddings
 
-class NLIModel(nn.Module):
+class NeuralSim(nn.Module):
     """
     Bi-LSTM encoder
     max pooling
-    classifier
+    score function
     """
-    def __init__(self, vocab, embed_size, embeddings, hidden_size, mlp_size, dropout_rate, device):
+    def __init__(self, vocab, embed_size, embeddings, hidden_size, mlp_size, dropout_rate, sim_scale=0.5):
         """
         @param vocab (Vocab): vocab object
         @param embed_size (int): embedding size
@@ -21,8 +21,9 @@ class NLIModel(nn.Module):
         @param hidden_size (int): hidden size
         @param mlp_size (int): mlp size
         @param dropout_rate (float): dropout prob
+        @param sim_scale (float): scale the sim score by this scalar
         """
-        super(NLIModel, self).__init__()
+        super(NeuralSim, self).__init__()
         self.pretrained_embeddings = embeddings
         self.embeddings = ModelEmbeddings(vocab, embed_size, self.pretrained_embeddings)
         self.device = device
@@ -30,55 +31,56 @@ class NLIModel(nn.Module):
         self.hidden_size = hidden_size
         self.mlp_size = mlp_size
         self.dropout_rate = dropout_rate
+        self.sim_scale = sim_scale
 
         #self.encoder = nn.LSTM(input_size=embed_size, hidden_size=self.hidden_size, num_layers=self.num_layers, bias=True, bidirectional=True)
         self.lstm_1 = nn.LSTM(input_size=embed_size, hidden_size=self.hidden_size, num_layers=1, bias=True, bidirectional=True)
         self.lstm_2 = nn.LSTM(input_size=(embed_size + self.hidden_size*2), hidden_size=self.hidden_size*2, num_layers=1, bias=True, bidirectional=True)
         self.lstm_3 = nn.LSTM(input_size=(embed_size + self.hidden_size*2 + self.hidden_size*4), hidden_size=self.hidden_size*4, num_layers=1, bias=True, bidirectional=True)
 
-        #classifier: in_features = final lstm out_size * 2 (bidirectional) * 4 (prem-hyp feature concat)
-        #           out_fearures = 3 labels
+        #in_features = final lstm out_size * 2 (bidirectional) * 4 (sent1-sent2 feature concat)
         self.mlp_1 = nn.Linear(in_features=self.hidden_size*4*2*4, out_features=self.mlp_size)
         self.mlp_2 = nn.Linear(in_features=self.mlp_size, out_features=self.mlp_size)
-        self.sm = nn.Linear(in_features=self.mlp_size, out_features=3)
-        self.classifier = nn.Sequential(*[self.mlp_1, nn.ReLU(), nn.Dropout(self.dropout_rate),
+        self.final_layer = nn.Linear(in_features=self.mlp_size, out_features=1)
+        self.score_fn = nn.Sequential(*[self.mlp_1, nn.ReLU(), nn.Dropout(self.dropout_rate),
                                         self.mlp_2, nn.ReLU(), nn.Dropout(self.dropout_rate),
-                                        self.sm])        
+                                        self.final_layer, nn.Sigmoid()]) 
 
-    def forward(self, prems, hyps):
+    def forward(self, sents1, sents2):
         """
-        given a batch of prems and hyps, run encoder on prems and hyps
+        given a batch of sent1 and sent2, run encoder on sent1 and sent2
         followed by max-pooling
-        and finally pass through the classifier
-        @param prems (list[list[str]]): batches of premise (list[str])
-        @param hyps (list[list[str]]): batches of hypothesis (list[str])
-        @return outs (torch.Tensor(batch-size, 3)): log-likelihod of 3-labels
+        and finally pass through the scoring function
+        @param sents1 (list[list[str]]): batch of sent1 (list[str])
+        @param sents2 (list[list[str]]): batch of sent2 (list[str])
+        @return scores (torch.Tensor(batch-size,)): sim scores for the batch of (sent1, sent2)
         """
-        prem_lengths = [len(prem) for prem in prems]
-        prem_padded = self.vocab.sents2Tensor(prems, device=self.device)
+        sent1_lengths = [len(sent1) for sent1 in sents1]
+        sent1_padded = self.vocab.sents2Tensor(sents1, device=self.device)
 
-        prem_enc_out = self.encode(prem_padded, prem_lengths)
+        sent1_enc_out = self.encode(sent1_padded, sent1_lengths)
 
-        #reverse sort hyps and save original lengths and index mapping:
-        #   map: indices_sorted -> indices_orig
-        hyp_lengths_orig = [len(hyp) for hyp in hyps]
-        hyp_sorted, orig_to_sorted = sortHyps(hyps)
-        hyp_lengths_sorted = [len(hyp) for hyp in hyp_sorted]
-        hyp_padded = self.vocab.sents2Tensor(hyp_sorted, device=self.device)
+        #reverse sort sents2 and save index mapping: orig -> sorted, and orig length
+        sent2_lengths_orig = [len(sent2) for sent2 in sents2]
+        sent2_sorted, orig_to_sorted = sort_sents(sents2)
+        sent2_lengths_sorted = [len(sent2) for sent2 in sent2_sorted]
+        sent2_padded = self.vocab.sents2Tensor(sent2_sorted, device=self.device)
 
-        hyp_enc_out = self.encode(hyp_padded, hyp_lengths_sorted)
-        hyp_enc_out_seq_orig = [hyp_enc_out[:, orig_to_sorted[i], :].unsqueeze(dim=1) 
-                                    for i in range(len(hyps))]
-        hyp_enc_out_orig = torch.cat(hyp_enc_out_seq_orig, dim=1)
+        sent2_enc_out = self.encode(sent2_padded, sent2_lengths_sorted)
+        sent2_enc_out_seq_orig = [sent2_enc_out[:, orig_to_sorted[i], :].unsqueeze(dim=1) 
+                                    for i in range(len(sents2))]
+        sent2_enc_out_orig = torch.cat(sent2_enc_out_seq_orig, dim=1)
 
-        #max pooling and classifier
-        prem_enc_final = self.maxPool(prem_enc_out, prem_lengths)
-        hyp_enc_final = self.maxPool(hyp_enc_out_orig, hyp_lengths_orig)
+        #applying max pooling and scoring function
+        sent1_enc_final = self.max_pool(sent1_enc_out, sent1_lengths)
+        sent2_enc_final = self.max_pool(sent2_enc_out_orig, sent2_lengths_orig)
         
-        classifier_features = torch.cat([prem_enc_final, hyp_enc_final, torch.abs(prem_enc_final - hyp_enc_final), prem_enc_final * hyp_enc_final], dim=-1)
+        scoring_features = torch.cat([sent1_enc_final, sent2_enc_final, torch.abs(sent1_enc_final - sent2_enc_final), sent1_enc_final * sent2_enc_final], dim=-1)
         
-        outs = self.classifier(classifier_features)
-        return outs 
+        scores = self.score_fn(scoring_features)
+        #scale the scores by sim_scale
+        scores = scores * self.sim_scale
+        return scores 
 
     def encode(self, sents, sents_lens):
         """
@@ -112,7 +114,7 @@ class NLIModel(nn.Module):
         out_layer, sents_lens_tensor = rnn.pad_packed_sequence(out_layer)
         return out_layer
 
-    def maxPool(self, encodings, lengths):
+    def max_pool(self, encodings, lengths):
         """
         apply max pool to each encoding to extract the max element
         @param encodings (torch.tensor(max_encoding_len, batch, hidden*2)):
@@ -138,21 +140,28 @@ class NLIModel(nn.Module):
             'args' : dict(embed_size=self.embeddings.embed_size, 
                         embeddings=self.pretrained_embeddings,
                         hidden_size=self.hidden_size, mlp_size=self.mlp_size,
-                        dropout_rate=self.dropout_rate, device=self.device),
+                        dropout_rate=self.dropout_rate),
             'state_dict': self.state_dict()      
         }
         torch.save(params, file_path)
+
+    @property
+    def device(self):
+        """
+        property decorator for devive
+        """
+        return self.embeddings.embedding.weight.device
 
     @staticmethod
     def load(model_path):
         """
         load a saved neural model
         @param model_path (str): path to model
-        @return model (NLIModel)
+        @return model (NeuralSim)
         """
         params = torch.load(model_path, map_location=lambda storage, loc: storage)
         args = params['args']
-        model = NLIModel(vocab=params['vocab'], **args)
+        model = NeuralSim(vocab=params['vocab'], **args)
         model.load_state_dict(params['state_dict'])
 
         return model
