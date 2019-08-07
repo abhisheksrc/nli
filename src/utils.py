@@ -159,37 +159,6 @@ def sort_sents(sents):
 
     return sents_sorted, orig_to_sorted
 
-def labels_to_indices(labels):
-    """
-    map NLI labels to indices and return them as Tensor
-    @param labels (list[str])
-    @return labels_indices (torch.tensor(len(labels),))
-    """
-    labels_map = {'entailment' : 0,
-                    'neutral': 1,
-                    'contradiction': 2}
-    labels_indices = torch.tensor([labels_map[label] for label in labels], dtype=torch.long)
-    return labels_indices
-
-def compare_labels(predicted, gold):
-    """
-    compute num matchings between the predicted and the gold
-    @param predicted (torch.tensor(batch, 3)): out from the NLI Model
-    @param gold (list[str]): list of gold labels
-    @return num_matches (int): number of matches between predicted and gold
-    """
-    num_matches = 0
-    labels_map = {'entailment' : 0,
-                    'neutral': 1,
-                    'contradiction': 2}
-    
-    pred_label_indices = torch.argmax(predicted, dim=-1)
-    for i, pred_label_index in enumerate(pred_label_indices):
-        pred_label_index = pred_label_index.item()
-        if pred_label_index == labels_map[gold[i]]:
-            num_matches += 1
-    return num_matches
-
 def save_generated_hyps(file_path, prems, hyps):
     """
     save each generated hyp by the Neural model for each given prem
