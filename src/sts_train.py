@@ -4,8 +4,8 @@ nli_train.py: Script for NLI Model
 Abhishek Sharma <sharm271@cs.purdue.edu>
 
 Usage:
-    nli_train.py train --train-file=<file> --dev-file=<file> [options]
-    nli_train.py test MODEL_PATH --test-file=<file> [options]
+    sts_train.py train --train-file=<file> --dev-file=<file> [options]
+    sts_train.py test MODEL_PATH --test-file=<file> [options]
 
 Options:
     -h --help                           show this screen.
@@ -23,7 +23,7 @@ Options:
     --num-layers=<int>                  number of layers [default: 3]
     --lr=<float>                        learning rate [default: 2e-4]
     --dropout=<float>                   dropout rate [default: 0.1]
-    --save-model-to=<file>              save trained model [default: nli_model.pt]
+    --save-model-to=<file>              save trained model [default: ../models/neural_sim.pt]
 """
 from __future__ import division
 
@@ -35,14 +35,11 @@ import torch.nn.functional as F
 
 from docopt import docopt
 
-from utils import readCorpus
-from utils import loadEmbeddings
-from utils import extractSentLabel
+from utils import load_embeddings
+from utils import extract_sents_result
 from utils import batch_iter
-from utils import labels_to_indices
-from utils import compareLabels
 from vocab import Vocab
-from nli_model import NLIModel
+from sts_model import NeuralSim
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -50,7 +47,7 @@ def evaluate(model, data, batch_size):
     """
     Evaluate the model on the data
     @param model (NLIModel): NLI Model
-    @param data (tuple(prem, hyp, label)): data returned by extractSentLabel
+    @param data (tuple(prem, hyp, label)): data returned by extract_sents_result
     @param batch_size (int): batch size
     @return avg_loss (float): avg. cross entropy loss on the data
     @return avg_acc (float): avg. classification accuracy on the data
@@ -91,20 +88,20 @@ def train(args):
     @param args (dict): command line args
     """
     vocab = Vocab.load(args['--vocab-file'])
-    embeddings = loadEmbeddings(vocab, args['--word-embeddings'], device)
+    embeddings = load_embeddings(vocab, args['--word-embeddings'])
 
-    #train NLI prediction model
-    train_data = extractSentLabel(args['--train-file'])
-    dev_data = extractSentLabel(args['--dev-file'])
+    #train Sim model
+    train_data = extract_sents_result(args['--train-file'])
+    dev_data = extract_sents_result(args['--dev-file'])
 
     train_batch_size = int(args['--batch-size'])
     dev_batch_size = int(args['--batch-size'])
     model_save_path = args['--save-model-to']
 
-    model = NLIModel(vocab, int(args['--embed-size']), embeddings,
+    model = NeuralSim(vocab, int(args['--embed-size']), embeddings,
                     hidden_size=int(args['--hidden-size']),
                     mlp_size=int(args['--mlp-hidden-size']),
-                    dropout_rate=float(args['--dropout']), device=device)
+                    dropout_rate=float(args['--dropout']))
 
     model = model.train()
     model = model.to(device)
@@ -118,27 +115,17 @@ def train(args):
 
     begin_time = time.time()
     for epoch in range(int(args['--max-epoch'])):
-        for prems, hyps, labels in batch_iter(train_data, batch_size=train_batch_size, shuffle=True, label=True):
+        for sents1, sents2, results in batch_iter(train_data, batch_size=train_batch_size, shuffle=True, result=True):
             optimizer.zero_grad()
             
-            batch_size = len(prems)
-            labels_pred = model(prems, hyps)
+            results_pred = model(prems, hyps)
 
-            P = F.log_softmax(labels_pred, dim=-1)
-            labels_indices = labels_to_indices(labels)
-            labels_indices = labels_indices.to(device) 
-            cross_entropy_loss = torch.gather(P, dim=-1,
-                index=labels_indices.unsqueeze(-1)).squeeze(-1)
-
-            batch_loss = -cross_entropy_loss.sum()
-            loss = batch_loss / batch_size
-
+            loss = F.mse_loss(results_pred, results)
             loss.backward()
 
             optimizer.step()
             
-            batch_losses_val = batch_loss.item()
-            total_loss += batch_losses_val
+            total_loss += loss.item()
 
         #print train loss at the end of each epoch
         train_loss = total_loss / len(train_data)
@@ -177,8 +164,8 @@ def test(args):
     test NLI model
     @param args (dict): command line args
     """
-    test_data = extractSentLabel(args['--test-file'])
-    model = NLIModel.load(args['MODEL_PATH'])
+    test_data = extract_sents_result(args['--test-file'])
+    model = SimModel.load(args['MODEL_PATH'])
     model = model.to(device)
     test_loss, test_acc = evaluate(model, test_data, batch_size=int(args['--batch-size']))
     print('final test accuracy= %.4f' %(test_acc))
