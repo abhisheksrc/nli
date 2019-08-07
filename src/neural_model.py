@@ -42,8 +42,8 @@ class NeuralModel(nn.Module):
         """
         given a batch of prems and hyps, run encoder on prems to get hidden state init for decoder
         run decoder to generate the hyps and calculate log-likelihood of the words in the hyps
-        @param prems (list[list[str]]): batches of premise (list[str])
-        @param hyps (list[list[str]]): batches of hypothesis (list[str])
+        @param prems (list[list[str]]): batch of premise (list[str])
+        @param hyps (list[list[str]]): batch of hypothesis (list[str])
         @return scores (torch.Tensor(batch-size, )): log-likelihod of generating the words in the hyps
         """
         prem_lengths = [len(prem) for prem in prems]
