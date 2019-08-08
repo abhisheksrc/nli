@@ -94,7 +94,7 @@ def extract_sents_result(file_path):
     for line in open(file_path, 'r'):
         score, sent1, sent2 = read_line(line)
         score = eval(score)
-        data.append((sent1, sent2, score)
+        data.append((sent1, sent2, score))
     return data
 
 def batch_iter(data, batch_size, shuffle=True, result=False):
