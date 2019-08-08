@@ -13,7 +13,7 @@ class NeuralSim(nn.Module):
     max pooling
     score function
     """
-    def __init__(self, vocab, embed_size, embeddings, hidden_size, mlp_size, dropout_rate, sim_scale=0.5):
+    def __init__(self, vocab, embed_size, embeddings, hidden_size, mlp_size, dropout_rate, sim_scale=5):
         """
         @param vocab (Vocab): vocab object
         @param embed_size (int): embedding size
@@ -26,7 +26,6 @@ class NeuralSim(nn.Module):
         super(NeuralSim, self).__init__()
         self.pretrained_embeddings = embeddings
         self.embeddings = ModelEmbeddings(vocab, embed_size, self.pretrained_embeddings)
-        self.device = device
         self.vocab = vocab
         self.hidden_size = hidden_size
         self.mlp_size = mlp_size
@@ -42,7 +41,7 @@ class NeuralSim(nn.Module):
         self.mlp_1 = nn.Linear(in_features=self.hidden_size*4*2*4, out_features=self.mlp_size)
         self.mlp_2 = nn.Linear(in_features=self.mlp_size, out_features=self.mlp_size)
         self.final_layer = nn.Linear(in_features=self.mlp_size, out_features=1)
-        self.score_fn = nn.Sequential(*[self.mlp_1, nn.ReLU(), nn.Dropout(self.dropout_rate),
+        self.scoring_fn = nn.Sequential(*[self.mlp_1, nn.ReLU(), nn.Dropout(self.dropout_rate),
                                         self.mlp_2, nn.ReLU(), nn.Dropout(self.dropout_rate),
                                         self.final_layer, nn.Sigmoid()]) 
 
@@ -77,7 +76,7 @@ class NeuralSim(nn.Module):
         
         scoring_features = torch.cat([sent1_enc_final, sent2_enc_final, torch.abs(sent1_enc_final - sent2_enc_final), sent1_enc_final * sent2_enc_final], dim=-1)
         
-        scores = self.score_fn(scoring_features)
+        scores = self.scoring_fn(scoring_features)
         #scale the scores by sim_scale
         scores = scores * self.sim_scale
         return scores 
