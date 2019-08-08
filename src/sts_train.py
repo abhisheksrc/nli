@@ -12,14 +12,14 @@ Options:
     --train-file=<file>                 train_corpus
     --dev-file=<file>                   dev_corpus
     --test-file=<file>                  test_corpus
-    --vocab-file=<file>                 vocab json [default: vocab.json]
-    --word-embeddings=<file>            word_vecs [default: ../data/wiki-news-300d-1M.txt]
+    --vocab-file=<file>                 vocab dump [default: vocab.pickle]
+    --pretrained-embeddings=<file>      word embeddings [default: embedding_weights.pickle]
     --max-epoch=<int>                   max epoch [default: 15]
     --patience=<int>                    wait for how many epochs to exit training [default: 5]
     --batch-size=<int>                  batch size [default: 32]
-    --embed-size=<int>                  word embed_dim [default: 300]
-    --hidden-size=<int>                 hidden dim [default: 512]
-    --mlp-hidden-size=<int>             mlp hidden dim [default: 1600]
+    --embed-size=<int>                  embedding size [default: 300]
+    --hidden-size=<int>                 hidden size [default: 512]
+    --mlp-hidden-size=<int>             mlp hidden size [default: 1600]
     --num-layers=<int>                  number of layers [default: 3]
     --lr=<float>                        learning rate [default: 2e-4]
     --dropout=<float>                   dropout rate [default: 0.1]
@@ -29,15 +29,16 @@ from __future__ import division
 
 import time
 import math
+import pickle
+from scipy.stats import pearsonr
 
 import torch
 import torch.nn.functional as F
 
 from docopt import docopt
 
-from utils import load_embeddings
-from utils import extract_sents_result
 from utils import batch_iter
+from utils import extract_sents_result
 from vocab import Vocab
 from sts_model import NeuralSim
 
@@ -46,51 +47,46 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 def evaluate(model, data, batch_size):
     """
     Evaluate the model on the data
-    @param model (NLIModel): NLI Model
-    @param data (tuple(prem, hyp, label)): data returned by extract_sents_result
+    @param model (NeuralSim): NeuralSim Model
+    @param data (list[tuple(sent1, sent2, score)]): list of sent_pairs, sim_score
     @param batch_size (int): batch size
-    @return avg_loss (float): avg. cross entropy loss on the data
-    @return avg_acc (float): avg. classification accuracy on the data
+    @return mean_loss (float): MSE loss on the scores_pred vs scores
+    @return corr (float): correlation b/w scores_pred vs scores
     """
     was_training = model.training
     model.eval()
 
     total_loss = .0
-    total_correct_preds = 0
+    cum_scores = []
+    cum_scores_pred = []
     with torch.no_grad():
-        for prems, hyps, labels in batch_iter(data, batch_size, shuffle=True, label=True):
-            labels_pred = model(prems, hyps)
+        for sents1, sents2, scores in batch_iter(data, batch_size, shuffle=False, result=True):
+            scores = torch.tensor(scores, dtype=torch.float, device=device)
+            scores_pred = model(sents1, sents2)
+            loss = F.mse_loss(scores_pred, scores, reduction='sum')
+            total_loss += loss.item()
 
-            P = F.log_softmax(labels_pred, dim=-1)
-            labels_indices = labels_to_indices(labels)
-            labels_indices = labels_indices.to(device) 
-            cross_entropy_loss = torch.gather(P, dim=-1,
-                index=labels_indices.unsqueeze(-1)).squeeze(-1)
+            cum_scores.extend(scores.tolist())
+            cum_scores_pred.extend(scores_pred.tolist())
 
-            batch_loss = -cross_entropy_loss.sum()
-            num_correct_preds = compareLabels(labels_pred, labels)
-
-            batch_losses_val = batch_loss.item()
-            total_loss += batch_losses_val
-            total_correct_preds += num_correct_preds
-
-    avg_loss = total_loss / len(data)
-    avg_acc = total_correct_preds / len(data)
+    mean_loss = total_loss / len(data)
+    corr, p_val = pearsonr(cum_scores_pred, cum_scores)
     
     if was_training:
         model.train()
 
-    return avg_loss, avg_acc
+    return mean_loss, corr
 
 def train(args):
     """
-    train NLI model
+    train NeuralSim model
     @param args (dict): command line args
     """
     vocab = Vocab.load(args['--vocab-file'])
-    embeddings = load_embeddings(vocab, args['--word-embeddings'])
+    embeddings = pickle.load(open(args['--pretrained-embeddings'], 'rb'))
+    embeddings = torch.tensor(embeddings, dtype=torch.float, device=device)
 
-    #train Sim model
+    #train NeuralSim model
     train_data = extract_sents_result(args['--train-file'])
     dev_data = extract_sents_result(args['--dev-file'])
 
@@ -110,34 +106,36 @@ def train(args):
     optimizer = torch.optim.Adam(model.parameters(), init_lr)
 
     total_loss = .0
-    hist_dev_scores = []
+    hist_dev_corrs = []
     patience = 0
 
     begin_time = time.time()
     for epoch in range(int(args['--max-epoch'])):
-        for sents1, sents2, results in batch_iter(train_data, batch_size=train_batch_size, shuffle=True, result=True):
+        for sents1, sents2, scores in batch_iter(train_data, batch_size=train_batch_size, shuffle=True, result=True):
             optimizer.zero_grad()
    
-            results = torch.tensor(results, device=device)         
-            results_pred = model(prems, hyps)
+            scores = torch.tensor(scores, dtype=torch.float, device=device) 
+            scores_pred = model(sents1, sents2)
 
-            loss = F.mse_loss(results_pred, results)
+            batch_size = len(sents1)
+            batch_loss = F.mse_loss(scores_pred, scores, reduction='sum')
+            loss = batch_loss / batch_size
             loss.backward()
 
             optimizer.step()
             
-            total_loss += loss.item()
+            total_loss += batch_loss.item()
 
         #print train loss at the end of each epoch
         train_loss = total_loss / len(train_data)
-        print('epoch = %d: avg. loss = %.2f, time elapsed = %.2f sec'
+        print('epoch = %d: mean loss = %.2f, time elapsed = %.2f sec'
             % (epoch, train_loss, time.time() - begin_time))
         total_loss = .0
 
         #perform validation
-        dev_loss, dev_acc = evaluate(model, dev_data, dev_batch_size)
-        is_better = epoch == 0 or dev_acc > max(hist_dev_scores)
-        hist_dev_scores.append(dev_acc)
+        dev_loss, dev_corr = evaluate(model, dev_data, dev_batch_size)
+        is_better = epoch == 0 or dev_corr > max(hist_dev_corrs)
+        hist_dev_corrs.append(dev_corr)
 
         if is_better:
             #reset patience
@@ -148,12 +146,12 @@ def train(args):
         else:
             patience += 1
             if patience == int(args['--patience']):
-                print('finishing training: dev loss = %.2f, dev acc. = %.2f'
-                    % (dev_loss, dev_acc))
+                print('finishing training: dev loss = %.2f, dev corr. = %.2f'
+                    % (dev_loss, dev_corr))
                 exit(0)
 
-        print('validation: dev loss = %.2f, dev acc. = %.2f'
-            % (dev_loss, dev_acc))
+        print('validation: dev loss = %.2f, dev corr. = %.2f'
+            % (dev_loss, dev_corr))
         
         #update lr after every 2 epochs
         lr = init_lr / 2 ** (epoch // 2)
@@ -168,8 +166,8 @@ def test(args):
     test_data = extract_sents_result(args['--test-file'])
     model = SimModel.load(args['MODEL_PATH'])
     model = model.to(device)
-    test_loss, test_acc = evaluate(model, test_data, batch_size=int(args['--batch-size']))
-    print('final test accuracy= %.4f' %(test_acc))
+    test_loss, test_corr = evaluate(model, test_data, batch_size=int(args['--batch-size']))
+    print('final test correlation= %.4f' %(test_corr))
 
 if __name__ == "__main__":
     args = docopt(__doc__)
