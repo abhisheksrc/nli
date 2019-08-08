@@ -18,8 +18,8 @@ Options:
     --patience=<int>                    wait for how many epochs to exit training [default: 5]
     --batch-size=<int>                  batch size [default: 32]
     --embed-size=<int>                  embedding size [default: 300]
-    --hidden-size=<int>                 hidden size [default: 512]
-    --mlp-hidden-size=<int>             mlp hidden size [default: 1600]
+    --hidden-size=<int>                 hidden size [default: 300]
+    --mlp-hidden-size=<int>             mlp hidden size [default: 512]
     --num-layers=<int>                  number of layers [default: 3]
     --lr=<float>                        learning rate [default: 2e-4]
     --dropout=<float>                   dropout rate [default: 0.1]
@@ -38,7 +38,7 @@ import torch.nn.functional as F
 from docopt import docopt
 
 from utils import batch_iter
-from utils import extract_sents_result
+from utils import extract_sents_score
 from vocab import Vocab
 from sts_model import NeuralSim
 
@@ -87,8 +87,8 @@ def train(args):
     embeddings = torch.tensor(embeddings, dtype=torch.float, device=device)
 
     #train NeuralSim model
-    train_data = extract_sents_result(args['--train-file'])
-    dev_data = extract_sents_result(args['--dev-file'])
+    train_data = extract_sents_score(args['--train-file'])
+    dev_data = extract_sents_score(args['--dev-file'])
 
     train_batch_size = int(args['--batch-size'])
     dev_batch_size = int(args['--batch-size'])
@@ -163,7 +163,7 @@ def test(args):
     test NLI model
     @param args (dict): command line args
     """
-    test_data = extract_sents_result(args['--test-file'])
+    test_data = extract_sents_score(args['--test-file'])
     model = SimModel.load(args['MODEL_PATH'])
     model = model.to(device)
     test_loss, test_corr = evaluate(model, test_data, batch_size=int(args['--batch-size']))

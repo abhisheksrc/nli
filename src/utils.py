@@ -84,16 +84,16 @@ def extract_pair_corpus(file_path):
             contradict_pairs.append((prem, hyp))
     return entail_pairs, neutral_pairs, contradict_pairs
 
-def extract_sents_result(file_path):
+def extract_sents_score(file_path):
     """
     build list of (sent1, sent2, result)
     @param file_path (str): /path/corpus
-    @return data (list[tuple(sent1, sent2, result)])
+    @return data (list[tuple(sent1, sent2, score)])
     """
     data = []
     for line in open(file_path, 'r'):
-        score, sent1, sent2 = read_line(line)
-        score = eval(score)
+        result, sent1, sent2 = read_line(line)
+        score = eval(result)
         data.append((sent1, sent2, score))
     return data
 
