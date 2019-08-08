@@ -76,7 +76,7 @@ class NeuralSim(nn.Module):
         
         scoring_features = torch.cat([sent1_enc_final, sent2_enc_final, torch.abs(sent1_enc_final - sent2_enc_final), sent1_enc_final * sent2_enc_final], dim=-1)
         
-        scores = self.scoring_fn(scoring_features)
+        scores = self.scoring_fn(scoring_features).squeeze(dim=-1)
         #scale the scores by sim_scale
         scores = scores * self.sim_scale
         return scores 
