@@ -4,19 +4,20 @@
 vocab.py: Vocabulary Generation
 
 Usage:
-    vocab.py [--train-file=<file>] [options]
+    vocab.py [--snli-corpus=<file> --sts-coprpus=<file>] [options]
 
 Options:
     -h --help                   show this screen.
-    --train-file=<file>         train_corpus [default: ../data/snli_train.txt]
+    --snli-corpus=<file>        [default: ../data/snli_train.txt]
+    --sts-corpus=<file>         [default: ../data/sts_train.txt]
     --freq-cutoff=<int>         frequency cutoff [default: 1]
-    --save-vocab-to=<file>      save vocab object [default: vocab.json]
+    --save-vocab-to=<file>      save vocab object [default: vocab.pickle]
 """
 
 from docopt import docopt
 from collections import Counter
 from itertools import chain
-import json
+import pickle
 import torch
 
 from utils import read_corpus
@@ -92,14 +93,14 @@ class Vocab(object):
         save the vocab to a json file
         @param file_path (str): /path/file to save the vocab
         """
-        json.dump(self.word2id, open(file_path, 'w'), indent=2)
+        pickle.dump(self.word2id, open(file_path, 'wb'))
 
     @staticmethod
     def build(corpus, freq_cutoff):
         """
         create Vocab object for the words in the corpus
-        @param corpus (list[list[str]]): corpus of text produced by read_corpus() function
-        @param freq_cutoff (int): cutoff for droping words based on their frequency
+        @param corpus (list[list[str]]): list of sentences
+        @param freq_cutoff (int): min frequency cutoff
         @return vocab (Vocab): Vocab class obj
         """
         vocab = Vocab()
@@ -117,12 +118,15 @@ class Vocab(object):
         @param file_path (str): /path/file for vocab build on corpus
         @return Vocab class obj loaded from this file_path
         """
-        word2id = json.load(open(file_path, 'r'))
+        word2id = pickle.load(open(file_path, 'rb'))
         return Vocab(word2id)
 
 if __name__ == "__main__":
     args = docopt(__doc__)
 
-    train_sents = read_corpus(args['--train-file'])
+    snli_sents = read_corpus(args['--snli-corpus'])
+    sts_sents = read_corpus(args['--sts-corpus'])
+    train_sents = snli_sents
+    train_sents.extend(sts_sents)
     vocab = Vocab.build(train_sents, int(args['--freq-cutoff']))
     vocab.save(args['--save-vocab-to'])
