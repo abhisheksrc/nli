@@ -1,8 +1,11 @@
 #!/usr/bin/python
 from __future__ import division
-import torch
+
 import numpy as np
 import math
+import pickle
+
+import torch
 
 import nltk
 
@@ -36,23 +39,28 @@ def read_corpus(file_path):
         
     return data
 
-def load_embeddings(vocab, embedding_file):
+def load_embeddings(vocab, embedding_file, embedding_size):
     """
     construct vector for word embeddings
     loads embedding from embedding_file
     @param vocab (Vocab): obj from Vocab class
     @param embedding_file (str): /path/file/containing_embedding
-    @return embedding_weights (torch.tensor (len(vocab), word_dim))
+    @param embedding_size (int): word embedding size
+    @return embedding_weights (torch.tensor (len(vocab), embedding_size))
     """
-    embedding_words_vecs = np.loadtxt(embedding_file, dtype='str', comments=None)
-    words = embedding_words_vecs[:, 0]
-    vecs = embedding_words_vecs[:, 1:].astype('float').tolist()
-    word_dim = len(vecs[0])
+    words = []
+    vecs = []
+    with open(embedding_file, 'r') as embed_f:
+        for line in embed_f:
+            word_vec = line.split()
+            word = ' '.join(word_vec[:-embedding_size])
+            vec = [eval(w) for w in word_vec[-embedding_size:]]
+            words.append(word)
+            vecs.append(vec)
 
-    #initialize weights
     init_vocab = len(vocab)
     weights = [None]*init_vocab
-    weights[vocab[vocab.pad_tok]] = np.zeros(word_dim).tolist()
+    weights[vocab[vocab.pad_tok]] = np.zeros(embedding_size).tolist()
 
     for i, word in enumerate(words):
         if word in vocab.word2id:
@@ -61,8 +69,10 @@ def load_embeddings(vocab, embedding_file):
     #check if any word embedding is still None
     for i in range(init_vocab):
         if not weights[i]:
-            weights[i] = np.random.rand(word_dim).tolist()
+            #assign remaining word embeddings randomly, round 4 decimals
+            weights[i] = np.around(np.random.rand(embedding_size), 4).tolist()
 
+    pickle.dump(weights, open('embeddings.pickle', 'wb'))
     embedding_weights = torch.tensor(weights, dtype=torch.float)
     return embedding_weights
 
@@ -97,13 +107,13 @@ def extract_sents_score(file_path):
         data.append((sent1, sent2, score))
     return data
 
-def batch_iter(data, batch_size, shuffle=True, result=False):
+def batch_iter(data, batch_size, shuffle=False, result=False):
     """
     yield batches of sent1, sent2 and result(optional) reverse sorted by sent1 length
     @param data (list[tuple]): list of tuples (sent1, sent2, result(optional))
     @param batch_size (int)
     @param shuffle (boolean): option randomly shuffle data
-    @param result (boolean): if optional result also present in data tuples
+    @param result (boolean): if True then also yield results
     """
     batches = int(math.ceil(len(data) / batch_size))
     index_array = list(range(len(data)))
