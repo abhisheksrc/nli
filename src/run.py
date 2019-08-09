@@ -4,15 +4,15 @@ run.py: run script for NLI LG Model
 Abhishek Sharma <sharm271@cs.purdue.edu>
 
 Usage:
-    run.py train --train-file=<file> --dev-file=<file> [options]
+    run.py train EVAL_MODEL --train-file=<file> --dev-file=<file> [options]
 
 Options:
     -h --help                           show this screen.
     --train-file=<file>                 train_corpus
     --dev-file=<file>                   dev_corpus
-    --save-generated-hyp-to=<file>      save generated hyp [default: _lg_result_att.txt]
-    --vocab-file=<file>                 vocab json [default: vocab.json]
-    --word-embeddings=<file>            word_vecs [default: ../data/wiki-news-300d-1M.txt]
+    --save-generated-hyp-to=<file>      save generated hyp [default: _lg_result.txt]
+    --vocab-file=<file>                 vocab json [default: snli-vocab.pickle]
+    --pretrained-embeddings=<file>      word embeddings [default: snli-embeddings.pickle]
     --max-epoch=<int>                   max epoch [default: 15]
     --patience=<int>                    wait for how many epochs to exit training [default: 5]
     --batch-size=<int>                  batch size [default: 32]
@@ -23,39 +23,41 @@ Options:
     --dropout=<float>                   dropout rate [default: 0.3]
     --beam-size=<int>                   beam size [default: 5]
     --max-decoding-time-step=<int>      max decoding time steps [default: 70]
-    --save-model-to=<file>              save trained model [default: _model_att_b5.pt]
+    --save-model-to=<file>              save trained model [default: _model_att.pt]
 """
 from __future__ import division
 
 import time
 import math
+import pickle
 
 import torch
 import torch.nn.functional as F
 
 from docopt import docopt
 
-from utils import loadEmbeddings
-from utils import extractPairCorpus
+from utils import extract_pair_corpus
 from utils import batch_iter
 from utils import save_generated_hyps
 from vocab import Vocab
 
 from neural_model import NeuralModel
+from sts_model import NeuralSim
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-def evaluate(args, data, model, vocab, embeddings):
+def evaluate(args, data, model):
     """ 
-    Evaluate the model on the data
+    Evaluate the model by generating hyps
+    and applying Sim model to compute the sim score 
+    between actual vs generated sents
     @param args (dict): command line args
     @param data (list[tuple]): list of (prem, hyp) pairs
-    @param model (NeuralModel): Neural Model
-    @param vocab (Vocab): Vocab class obj
-    @param embeddings (torch.tensor(len(vocab), embed_dim)): pretrained word embeddings
+    @param model (NeuralModel): trained Neural Model
     @return gen_hyps (list[list[str]]): list of gen hyps
-    @return eval_loss (float): eval loss on the data
+    @return eval_score (float): eval score on the data
     """
+    #gen hyps
     was_training = model.training
     model.eval()
     
@@ -64,10 +66,11 @@ def evaluate(args, data, model, vocab, embeddings):
     with torch.no_grad():
          for prem, hyp in data:
             gen_hyp = model.beam_search(prem, 
-                beam_size=int(args['--beam-size']),
-                max_decoding_time_step=int(args['--max-decoding-time-step']))
+            beam_size=int(args['--beam-size']),
+            max_decoding_time_step=int(args['--max-decoding-time-step']))
+
             gen_hyps.append(gen_hyp)
-            data_hyps.append(hyp)
+            data_hyps.append(hyp[1:-1]) #exclude <start> and <eos>
 
     if was_training:
         model.train()
@@ -79,33 +82,24 @@ def evaluate(args, data, model, vocab, embeddings):
 
     num_empty_gen_hyp = len(gen_hyps) - len(eval_data)
     if num_empty_gen_hyp > 0:
-        print('generated %d empty hypothesis' %(num_empty_gen_hyp))
+        print('generated empty hypothesis = %d' %(num_empty_gen_hyp))
 
-    eval_loss = eval_avg_sim(eval_data, vocab, embeddings)
-    return gen_hyps, eval_loss
+    #compute sim score
+    sim_model = NeuralSim.load(args['EVAL_MODEL'])
+    sim_model = sim_model.to(device)
+    sim_model.eval()
 
-def eval_avg_sim(data, vocab, embeddings):
-    """
-    Eval cosine sim for sent pairs by averaging sent word embedding
-    @param data (list(tuple)): list of (sent1, sent2) pairs
-    @param vocab (Vocab): Vocab class obj
-    @param embeddings (torch.tensor(len(vocab), embed_dim)): pretrained word embeddings
-    @return loss (float): loss on sent similarity
-    """
-    total_loss = .0
-    for sent1, sent2 in data:
-        sent1_ids = vocab.words2indices(sent1)
-        sent1_ids = torch.tensor(sent1_ids, dtype=torch.long, device=device)
-        sent2_ids = vocab.words2indices(sent2)
-        sent2_ids = torch.tensor(sent2_ids, dtype=torch.long, device=device)
-        sent1_embed = embeddings[sent1_ids]
-        sent1_embed = torch.mean(sent1_embed, dim=0)
-        sent2_embed = embeddings[sent2_ids]
-        sent2_embed = torch.mean(sent2_embed, dim=0)
-        sim = F.cosine_similarity(sent1_embed, sent2_embed, dim=-1)
-        loss = 1 - sim.item()
-        total_loss += loss
-    return total_loss / len(data)
+    batch_size = int(args['--batch-size'])
+    total_sim_score = .0
+    with torch.no_grad():
+        for sents1, sents2 in batch_iter(eval_data, batch_size):
+            #sim score for this batch (torch.tensor(b,))
+            sim_scores = sim_model(sents1, sents2)
+            total_sim_score += torch.sum(sim_scores).item()
+
+    eval_score = total_sim_score / len(eval_data)
+
+    return gen_hyps, eval_score
         
 def train_lg_model(args, vocab, embeddings, train_data, dev_data, label):
     """
@@ -119,7 +113,7 @@ def train_lg_model(args, vocab, embeddings, train_data, dev_data, label):
     """
     train_batch_size = int(args['--batch-size'])
     clip_grad = float(args['--clip-grad'])
-    model_save_path = label + args['--save-model-to']
+    model_save_path = '../models/' + label + args['--save-model-to']
 
     model = NeuralModel(vocab, int(args['--embed-size']), embeddings,
                         hidden_size=int(args['--hidden-size']),
@@ -133,9 +127,9 @@ def train_lg_model(args, vocab, embeddings, train_data, dev_data, label):
     total_hyp_words = 0
 
     dev_prems = [prem for (prem, hyp) in dev_data]
-    generated_hyp_path = label + args['--save-generated-hyp-to']
+    generated_hyp_path = '../results/' + label + args['--save-generated-hyp-to']
 
-    hist_dev_losses = []
+    hist_dev_scores = []
     patience = 0
 
     begin_time = time.time()
@@ -166,9 +160,9 @@ def train_lg_model(args, vocab, embeddings, train_data, dev_data, label):
         total_hyp_words = 0
 
         #perform validation
-        dev_hyps, dev_loss = evaluate(args, dev_data, model, vocab, embeddings)
-        is_better = epoch == 0 or dev_loss < min(hist_dev_losses)
-        hist_dev_losses.append(dev_loss)
+        dev_hyps, dev_score = evaluate(args, dev_data, model)
+        is_better = epoch == 0 or dev_score > max(hist_dev_scores)
+        hist_dev_scores.append(dev_score)
 
         if is_better:
             #reset patience
@@ -181,12 +175,12 @@ def train_lg_model(args, vocab, embeddings, train_data, dev_data, label):
         else:
             patience += 1
             if patience == int(args['--patience']):
-                print('finishing training: dev loss = %.2f'
-                    % (dev_loss))
+                print('finishing training: dev sim score = %.2f'
+                    % (dev_score))
                 exit(0)
 
-        print('validation: dev loss = %.2f'
-            % (dev_loss))
+        print('validation: dev sim score = %.2f'
+            % (dev_score))
 
         #update lr after every 2 epochs
         lr = init_lr / 2 ** (epoch // 2)
@@ -199,16 +193,18 @@ def train(args):
     @param args (dict): command line args
     """
     vocab = Vocab.load(args['--vocab-file'])
-    embeddings = loadEmbeddings(vocab, args['--word-embeddings'])
-    embeddings = embeddings.to(device)
+    embeddings = pickle.load(open(args['--pretrained-embeddings'], 'rb'))
+    embeddings = torch.tensor(embeddings, dtype=torch.float, device=device)
 
     #construct set of train sent pairs for each hyp class
-    entail_pairs, neutral_pais, contradict_pairs = extractPairCorpus(args['--train-file'])
+    entail_pairs, neutral_pais, contradict_pairs = extract_pair_corpus(args['--train-file'])
     #construct set of dev sent pars for each hyp class
-    dev_entail_pairs, dev_neutral_pairs, dev_contradict_pairs = extractPairCorpus(args['--dev-file'])
+    dev_entail_pairs, dev_neutral_pairs, dev_contradict_pairs = extract_pair_corpus(args['--dev-file'])
     
     #train LG model for each hyp class
     train_lg_model(args, vocab, embeddings, train_data=entail_pairs, dev_data=dev_entail_pairs, label='entailment')
+    train_lg_model(args, vocab, embeddings, train_data=neutral_pairs, dev_data=dev_neutral_pairs, label='neutral')
+    train_lg_model(args, vocab, embeddings, train_data=contradict_pairs, dev_data=dev_contradict_pairs, label='contradiction')
 
 if __name__ == "__main__":
     args = docopt(__doc__)
