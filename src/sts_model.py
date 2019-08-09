@@ -87,7 +87,7 @@ class NeuralSim(nn.Module):
         @param sents (torch.tensor(max_sent_len, batch))
         @param sents_lens (list[int]): list of actual lengths of the sents
         @return out_layer_3 (torch.tensor(max_sent_len, batch, hidden*4*2)): 
-            the final out from the laste lstm layer
+            the final out from the last lstm layer
         """
         X = self.embeddings(sents)
         out_layer_1 = self.run_BiLSTM(self.lstm_1, X, sents_lens)
