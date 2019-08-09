@@ -34,9 +34,9 @@ class BiLSTMSim(nn.Module):
         self.encoder = nn.LSTM(input_size=embed_size, hidden_size=self.hidden_size, num_layers=self.num_layers, bias=True, bidirectional=True)
 
         #in_features = h * 2 (bidirectional) * num_layers * 2 (sent1-sent2 feature concat)
-        self.mlp = nn.Linear(in_features=self.hidden_size*2*self.num_layers*2, out_features=self.mlp_size)
+        self.mlp = nn.Linear(in_features=self.hidden_size*2*self.num_layers*4, out_features=self.mlp_size)
         self.final_layer = nn.Linear(in_features=self.mlp_size, out_features=1)
-        self.scoring_fn = nn.Sequential(*[self.mlp, nn.Tanh(), nn.Dropout(self.dropout_rate),
+        self.scoring_fn = nn.Sequential(*[self.mlp, nn.ReLU(), nn.Dropout(self.dropout_rate),
                                         self.final_layer, nn.Sigmoid()]) 
 
     def forward(self, sents1, sents2):
@@ -64,7 +64,7 @@ class BiLSTMSim(nn.Module):
                                     for i in range(len(sents2))]
         sent2_enc_final = torch.cat(sent2_enc_out_orig, dim=0)
 
-        scoring_features = torch.cat((sent1_enc_final, sent2_enc_final), dim=-1)
+        scoring_features = torch.cat((sent1_enc_final, sent2_enc_final, torch.abs(sent1_enc_final - sent2_enc_final), sent1_enc_final * sent2_enc_final), dim=-1)
         
         scores = self.scoring_fn(scoring_features).squeeze(dim=-1)
         #scale the scores by sim_scale
@@ -86,6 +86,7 @@ class BiLSTMSim(nn.Module):
 
         #expand h_n
         h_n = h_n.view(self.num_layers, 2, batch, self.hidden_size)
+        
         #con-cat last outs from all the layers
         last_outs = []
         for i in range(self.num_layers):
@@ -93,7 +94,7 @@ class BiLSTMSim(nn.Module):
             last_outs.append(h_n_i)
 
         final_out = torch.cat(last_outs, dim=-1)
-
+        
         #con-cat last outs from the last layer
         #h_n = torch.cat((h_n[-1, 0, :, :], h_n[-1, 1, :, :]), dim=-1)
 
