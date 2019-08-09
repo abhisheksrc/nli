@@ -5,6 +5,7 @@ Abhishek Sharma <sharm271@cs.purdue.edu>
 
 Usage:
     run.py train EVAL_MODEL --train-file=<file> --dev-file=<file> [options]
+    run.py test ENTAIL_MODEL NEUTRAL_MODEL CONTRADICT_MODEL EVAL_MODEL --test-file=<file> [options]
 
 Options:
     -h --help                           show this screen.
@@ -35,6 +36,7 @@ import torch
 import torch.nn.functional as F
 
 from docopt import docopt
+from nltk.translate.bleu_score import corpus_bleu, SmoothingFunction
 
 from utils import extract_pair_corpus
 from utils import batch_iter
@@ -49,13 +51,15 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 def evaluate(args, data, model):
     """ 
     Evaluate the model by generating hyps
-    and applying Sim model to compute the sim score 
+    using Sim model to compute the sim score
+    and using BLEU metric for word overlap 
     between actual vs generated sents
     @param args (dict): command line args
     @param data (list[tuple]): list of (prem, hyp) pairs
     @param model (NeuralModel): trained Neural Model
     @return gen_hyps (list[list[str]]): list of gen hyps
-    @return eval_score (float): eval score on the data
+    @return sim_score (float): sim score on the corpus
+    @return bleu_score (float): BLEU score on the corpus
     """
     #gen hyps
     was_training = model.training
@@ -97,10 +101,25 @@ def evaluate(args, data, model):
             sim_scores = sim_model(sents1, sents2)
             total_sim_score += torch.sum(sim_scores).item()
 
-    eval_score = total_sim_score / len(eval_data)
+    sim_score = total_sim_score / len(eval_data)
 
-    return gen_hyps, eval_score
-        
+    #compute bleu score
+    bleu_score = compute_bleu_score(data_hyps, gen_hyps)
+
+    return gen_hyps, sim_score, bleu_score
+    
+def compute_bleu_score(refs, hyps):
+    """
+    compute bleu score for the given references against generated hyps
+    @param refs (list[list[str]]): list of reference sents
+    @param hyps (list[list[str]]): list of generated candidate sents
+    @return bleu_score (float): BLEU score for the word overlap
+    """
+    bleu_score = corpus_bleu([[ref] for ref in refs],
+                            hyps, weights=(0.5, 0.5, 0, 0),
+                            smoothing_function=SmoothingFunction().method4)
+    return bleu_score
+
 def train_lg_model(args, vocab, embeddings, train_data, dev_data, label):
     """
     train LG model on the specific label
@@ -127,7 +146,7 @@ def train_lg_model(args, vocab, embeddings, train_data, dev_data, label):
     total_hyp_words = 0
 
     dev_prems = [prem for (prem, hyp) in dev_data]
-    generated_hyp_path = '../results/' + label + args['--save-generated-hyp-to']
+    save_gen_hyp_path = '../results/' + label + args['--save-generated-hyp-to']
 
     hist_dev_scores = []
     patience = 0
@@ -160,9 +179,9 @@ def train_lg_model(args, vocab, embeddings, train_data, dev_data, label):
         total_hyp_words = 0
 
         #perform validation
-        dev_hyps, dev_score = evaluate(args, dev_data, model)
-        is_better = epoch == 0 or dev_score > max(hist_dev_scores)
-        hist_dev_scores.append(dev_score)
+        dev_hyps, sim_score, bleu_score = evaluate(args, dev_data, model)
+        is_better = epoch == 0 or sim_score > max(hist_dev_scores)
+        hist_dev_scores.append(sim_score)
 
         if is_better:
             #reset patience
@@ -170,17 +189,17 @@ def train_lg_model(args, vocab, embeddings, train_data, dev_data, label):
             #save model
             model.save(model_save_path)
             #save generated hyps
-            save_generated_hyps(generated_hyp_path, dev_prems, dev_hyps)
+            save_generated_hyps(save_gen_hyp_path, dev_prems, dev_hyps)
 
         else:
             patience += 1
             if patience == int(args['--patience']):
-                print('finishing training: dev sim score = %.2f'
-                    % (dev_score))
-                exit(0)
+                print('finishing training: dev sim score = %.2f, BLEU score = %.2f'
+                    % (sim_score, bleu_score))
+                return
 
-        print('validation: dev sim score = %.2f'
-            % (dev_score))
+        print('validation: dev sim score = %.2f, BLEU score = %.2f'
+            % (sim_score, bleu_score))
 
         #update lr after every 2 epochs
         lr = init_lr / 2 ** (epoch // 2)
@@ -202,11 +221,40 @@ def train(args):
     dev_entail_pairs, dev_neutral_pairs, dev_contradict_pairs = extract_pair_corpus(args['--dev-file'])
     
     #train LG model for each hyp class
+    print('--------entailment--------')
     train_lg_model(args, vocab, embeddings, train_data=entail_pairs, dev_data=dev_entail_pairs, label='entailment')
+    print('--------neutral--------')
     train_lg_model(args, vocab, embeddings, train_data=neutral_pairs, dev_data=dev_neutral_pairs, label='neutral')
+    print('--------contradiction--------')
     train_lg_model(args, vocab, embeddings, train_data=contradict_pairs, dev_data=dev_contradict_pairs, label='contradiction')
+
+def test(args):
+    """
+    test models for each label
+    @param args (dict): command line args
+    """
+    entail_pairs, neutral_pairs, contradict_pairs = extract_pair_corpus(args['--test-file'])
+    labels = ['entail', 'neutral', 'contradict']
+    for i, label in enumerate(labels):
+        if label == 'entail':
+            data = entail_pairs
+        elif label == 'neutral':
+            data = neutral_pairs
+        elif label == 'contradict':
+            data = contradict_pairs
+        
+        save_gen_hyp_path = '../results/' + label + '_test' + args['--save-generated-hyp-to']
+        prems = [prem for (prem, hyp) in data]
+        model_path = label.upper() + '_MODEL'
+        model = NeuralModel.load(args[model_path]) 
+        model = model.to(device)
+        gen_hyps, sim_score, bleu_score = evaluate(args, data, model)
+        save_generated_hyps(save_gen_hyp_path, prems, gen_hyps)
+        print('%s sim score = %.2f, BLEU score = %.2f' % (label, sim_score, bleu_score))
 
 if __name__ == "__main__":
     args = docopt(__doc__)
     if args['train']:
         train(args)
+    elif args['test']:
+        test(args)
