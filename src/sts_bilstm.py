@@ -79,7 +79,7 @@ class BiLSTMSim(nn.Module):
         @return final_out (torch.tensor(batch, hidden*2*num_layers)): 
             the con-cat last outs from all the layers
         """
-        batch = X.shape[1]
+        batch = sents.shape[1]
         X = self.embeddings(sents)
         X = rnn.pack_padded_sequence(X, sents_lens)
         out_layer, (h_n, c_n) = self.encoder(X)
