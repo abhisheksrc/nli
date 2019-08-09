@@ -86,7 +86,6 @@ def train(args):
     embeddings = pickle.load(open(args['--pretrained-embeddings'], 'rb'))
     embeddings = torch.tensor(embeddings, dtype=torch.float, device=device)
 
-    #train BiLSTMSim model
     train_data = extract_sents_score(args['--train-file'])
     dev_data = extract_sents_score(args['--dev-file'])
 
@@ -161,7 +160,7 @@ def train(args):
 
 def test(args):
     """
-    test NLI model
+    test BiLSTMSim model
     @param args (dict): command line args
     """
     test_data = extract_sents_score(args['--test-file'])
