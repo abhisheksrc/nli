@@ -13,7 +13,7 @@ Options:
     --dev-file=<file>                   dev_corpus
     --test-file=<file>                  test_corpus
     --vocab-file=<file>                 vocab dump [default: vocab.pickle]
-    --pretrained-embeddings=<file>      word embeddings [default: wiki-embeddings.pickle]
+    --pretrained-embeddings=<file>      word embeddings [default: glove-embeddings.pickle]
     --max-epoch=<int>                   max epoch [default: 15]
     --patience=<int>                    wait for how many epochs to exit training [default: 5]
     --batch-size=<int>                  batch size [default: 32]
@@ -23,7 +23,7 @@ Options:
     --num-layers=<int>                  number of layers [default: 3]
     --lr=<float>                        learning rate [default: 1e-3]
     --dropout=<float>                   dropout rate [default: 0.1]
-    --save-model-to=<file>              save trained model [default: ../models/bilstm_sim_glove.pt]
+    --save-model-to=<file>              save trained model [default: ../models/bilstm_sim.pt]
 """
 from __future__ import division
 
