@@ -133,7 +133,8 @@ class NeuralModel(nn.Module):
         (h_t, c_t) = dec_next_state
         #attention scores
         e_t = torch.bmm(enc_hiddens_proj, h_t.unsqueeze(-1)).squeeze(-1) #(b, max_enc_len)
-        #filling -inf to e_t where enc_masks has 1
+        #filling -inf to e_t where enc_masks has 1, to zero out <pad> toks
+        #Note: e^{-inf} = 0
         if enc_masks is not None:
             e_t.data.masked_fill_(enc_masks.byte(), -float('inf'))
         
