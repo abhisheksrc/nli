@@ -216,7 +216,7 @@ def train(args):
     embeddings = torch.tensor(embeddings, dtype=torch.float, device=device)
 
     #construct set of train sent pairs for each hyp class
-    entail_pairs, neutral_pais, contradict_pairs = extract_pair_corpus(args['--train-file'])
+    entail_pairs, neutral_pairs, contradict_pairs = extract_pair_corpus(args['--train-file'])
     #construct set of dev sent pars for each hyp class
     dev_entail_pairs, dev_neutral_pairs, dev_contradict_pairs = extract_pair_corpus(args['--dev-file'])
     
