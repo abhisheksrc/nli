@@ -1,2 +1,2 @@
 # nli
-[![codecov](https://codecov.io/gh/abhishek9594/nli/branch/master/graph/badge.svg)](https://codecov.io/gh/abhishek9594/nli)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/abhishek9594/nli/blob/master/LICENSE)
