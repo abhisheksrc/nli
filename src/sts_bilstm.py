@@ -33,7 +33,7 @@ class BiLSTMSim(nn.Module):
 
         self.encoder = nn.LSTM(input_size=embed_size, hidden_size=self.hidden_size, num_layers=self.num_layers, bias=True, bidirectional=True)
 
-        #in_features = h * 2 (bidirectional) * num_layers * 2 (sent1-sent2 feature concat)
+        #in_features = h * 2 (bidirectional) * num_layers * 4 (sent1-sent2 feature concat)
         self.mlp = nn.Linear(in_features=self.hidden_size*2*self.num_layers*4, out_features=self.mlp_size)
         self.final_layer = nn.Linear(in_features=self.mlp_size, out_features=1)
         self.scoring_fn = nn.Sequential(*[self.mlp, nn.ReLU(), nn.Dropout(self.dropout_rate),
