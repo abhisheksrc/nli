@@ -27,7 +27,7 @@ To train the neural models on the dataset run the following command from `$src` 
 python run.py train EVAL_MODEL --train-file=<file> --dev-file=<file> [options]
 ```
 
-- where `EVAL_MODEL` is described in the next section
+- where `EVAL_MODEL` is described in the next [section](#evaluating:)
 - for the format of data files please see [utils](src/utils.py)
 
 The model's architecture is described in [NeuralModel](src/neural_model.py), whereas the hyperparameters are set from [run.py](src/run.py).
@@ -44,7 +44,7 @@ An example of sentences with a score of 5.0, from the corpus, is: **A band is pe
 
 In order to evaluate semantic similarity we come up with a feature vector using fixed size sentence embeddings and pass the feature vector to a scoring function which yields the similarity score.
 
-We train and compare performances of the following 3 models and choose the one which performs the best on the STS test set:
+We train and compare performances of the following 2 models and choose the one which performs the best on the STS test set:
 
 1. [Word Averaging Cosine Similarity](src/sts_avg.py)
   - This is our baseline model, where the sentence embedding is computed by averaging word embeddings and the feature vector is obtained by concatenating the embeddings.  We use cosine similarity as the scoring function and scale the score on 5.0 scale.
@@ -54,9 +54,20 @@ We train and compare performances of the following 3 models and choose the one w
   python sts_train_avg train --train-file=<file> --dev-file=<file> [options]
   ```
  2. [BiLSTM Encoder](src/sts_bilstm.py)
-  - We run BiLSTM for each sentence and the sentence embedding is computed by concatenating all the hidden outputs from the   last time-steps for both forward and backward directions, from each layers.  The final feature vector is obtained by \[*s_a, s_b, abs(s_a \- s_b), s_a \* s_b*\], where *s_a* and *s_b* are the sentence embeddings for the sentence pair *a* and *b* and *,* denotes concatenation between those vectors.
+  - We run BiLSTM for each sentence and the sentence embedding is computed by concatenating all the hidden outputs from the   last time-steps for both forward and backward directions, from each layers.  The final feature vector is obtained by \[*s_a; s_b; abs(s_a \- s_b); s_a \* s_b*\], where *s_a* and *s_b* are the sentence embeddings for the sentence pair *a* and *b* and *';'* denotes concatenation between those vectors.
   For training details please see [STS train BiLSTM Sim](src/sts_train_bilstm.py).
   To run and obtain the STS model please run the following command from `$src` directory: 
   ```bash
   python sts_train_bilstm train --train-file=<file> --dev-file=<file> [options]
   ```
+  
+We use mean square error (MSE) as our training objective.  The squared error is calculated between the predicted vs the actual similarity score.  We save the model which performs the best on the STS dev set.
+
+To finally evaluate the performance we compare the Pearson correlation coefficient (Pearson's r) between the 2 models:
+
+| Model | Dev | Test  |
+|-|-|-|
+| [Word Averaging Cosine Similarity](src/sts_avg.py) | 61% | 50% |
+| [BiLSTM Encoder](src/sts_bilstm.py) | 74% | 74.5% |
+
+Having high Pearson's r means having high correlation with the actula results and hence we pick the [BiLSTM Encoder](src/sts_bilstm.py) as our `EVAL_MODEL`.
