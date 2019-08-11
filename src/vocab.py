@@ -4,7 +4,7 @@
 vocab.py: Vocabulary Generation
 
 Usage:
-    vocab.py --snli-corpus=<file> --sts-coprpus=<file> [options]
+    vocab.py --snli-corpus=<file> --sts-corpus=<file> [options]
 
 Options:
     -h --help                   show this screen.
