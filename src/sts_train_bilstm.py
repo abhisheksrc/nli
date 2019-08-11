@@ -4,8 +4,8 @@ nli_train.py: Script for NLI Model
 Abhishek Sharma <sharm271@cs.purdue.edu>
 
 Usage:
-    sts_train.py train --train-file=<file> --dev-file=<file> [options]
-    sts_train.py test MODEL_PATH --test-file=<file> [options]
+    sts_train_bilstm.py train --train-file=<file> --dev-file=<file> [options]
+    sts_train_bilstm.py test MODEL_PATH --test-file=<file> [options]
 
 Options:
     -h --help                           show this screen.
