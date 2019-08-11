@@ -36,7 +36,9 @@ Our model is similar in implementation as the Neural Machine Translation(NMT) mo
 
 ## Evaluating:
 
-Coming with evaluation metrics is often challenging for language generation.  Specially for this task, we could have multiple possible *hypotheses* for a given *premise* and a label.  However the *hypotheses* provided in the dataset should have some degree of semantic simmilarity with the generated *hypotheses*.  We therefore train 3 seperate models for Semantic Textual Similarity (STS) task on the [STS Benchmark: Main English dataset](refs/sts.bib), [STS Wiki](http://ixa2.si.ehu.eus/stswiki).
+### Semantic Similarity
+
+Coming with evaluation metrics is often challenging for language generation.  Specially for this task, we could have multiple possible *hypotheses* for a given *premise* and a label.  However the *hypotheses* provided in the dataset should have some degree of semantic similarity with the generated *hypotheses*.  We therefore train 2 separate models for Semantic Textual Similarity (STS) task on the [STS Benchmark: Main English dataset](refs/sts.bib), [STS Wiki](http://ixa2.si.ehu.eus/stswiki).
 
 The STS task is to compute similarity score for a given pair of sentences on a continuous scale of 0.0 to 5.0.  Two very similar sentences should be given a high score, whereas dissimilar sentences should get a low score.
 
@@ -54,7 +56,7 @@ We train and compare performances of the following 2 models and choose the one w
   python sts_train_avg train --train-file=<file> --dev-file=<file> [options]
   ```
  2. [BiLSTM Encoder](src/sts_bilstm.py)
-  - We run BiLSTM for each sentence and the sentence embedding is computed by concatenating all the hidden outputs from the   last time-steps for both forward and backward directions, from each layers.  The final feature vector is obtained by \[*s_a; s_b; abs(s_a \- s_b); s_a \* s_b*\], where *s_a* and *s_b* are the sentence embeddings for the sentence pair *a* and *b* and *';'* denotes concatenation between those vectors.
+  - We run BiLSTM for each sentence and the sentence embedding is computed by concatenating all the hidden outputs from the   last time-steps for both forward and backward directions, from each layers.  The final feature vector is obtained by \[*s_a; s_b; \|s_a \- s_b\|; s_a \* s_b*\], where *s_a* and *s_b* are the sentence embeddings for the sentence pair *a* and *b* and *';'* denotes concatenation between those vectors.
   For training details please see [STS train BiLSTM Sim](src/sts_train_bilstm.py).
   To run and obtain the STS model please run the following command from `$src` directory: 
   ```bash
@@ -70,4 +72,8 @@ To finally evaluate the performance we compare the Pearson correlation coefficie
 | [Word Averaging Cosine Similarity](src/sts_avg.py) | 61% | 50% |
 | [BiLSTM Encoder](src/sts_bilstm.py) | 74% | 74.5% |
 
-Having high Pearson's r means having high correlation with the actula results and hence we pick the [BiLSTM Encoder](src/sts_bilstm.py) as our `EVAL_MODEL`.
+Having high Pearson's r means having high correlation with the actual results and hence we pick the [BiLSTM Encoder](src/sts_bilstm.py) as our `EVAL_MODEL`.
+
+### [BLEU](https://www.aclweb.org/anthology/P02-1040)
+
+We would also like to evaluate the word overlap between the generated *hypotheses* against the dataset *hypotheses*.  We choose BLEU to evaluate the word overlap as it is commonly used for the NMT task.  However, the generated *hypotheses* could have very different words than the ones in the dataset and yet still correct.  Therefore, to avoid penalizing such cases we only weigh unigram and bigram word matching precision, with equal weights of 0.5.
