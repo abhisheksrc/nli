@@ -8,7 +8,7 @@ For example, for the *premise* **The sky is clear**  an entailing *hypothesis* c
 
 We train 3 independent neural models to generate *hypothesis* for each label.
 
-Before delving into the models and scripts let's take a look at the software versions used for this project:
+Before delving into the models and scripts let's take a look at the software versions we use for this project:
 
 - `Python 2.7.15+`
 - `PyTorch 1.0.0`
@@ -126,6 +126,22 @@ For the qualitative analysis we randomly pick 5 *premises* and show the generate
   |*entailment*| Men are watching a sports game. |Some men are watching TV at a bar.|
   |*neutral*| The men are watching a sports game. |There are men drinking beer at a sports bar.|
   |*contradiction*| The men are watching a movie. |The men are at a baseball game.|
+  
+  4. *premise*: Mom and little boy having fun & eating by the lake.
+  
+  |label| generated *hypothesis* |dataset *hypothesis*|
+  |-|-|-|
+  |*entailment*| The family is eating. |Two humans enjoying the outside.|
+  |*neutral*| Mother and son at the lake. |A mom and a son spending time together on their weekend supervised visit.|
+  |*contradiction*| A father and son are swimming. |A mom is pouring grape juice on the ground while her son is crying.|
+  
+  5. *premise*: A woman in a teal apron prepares a meal at a restaurant.
+  
+  |label| generated *hypothesis* |dataset *hypothesis*|
+  |-|-|-|
+  |*entailment*| A woman is cooking. |A woman in restaurant|
+  |*neutral*| A woman is cooking dinner. |A woman prepare a lunch in restaurant|
+  |*contradiction*| A woman is eating at a restaurant. |A woman is walking in park|
 
 
 ## Discussions:
