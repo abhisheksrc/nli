@@ -46,11 +46,17 @@ In order to evaluate semantic similarity we come up with a feature vector using 
 
 We train and compare performances of the following 3 models and choose the one which performs the best on the STS test set:
 
-- [Word Averaging Cosine Similarity](src/sts_avg.py)
+1. [Word Averaging Cosine Similarity](src/sts_avg.py)
   - This is our baseline model, where the sentence embedding is computed by averaging word embeddings and the feature vector is obtained by concatenating the embeddings.  We use cosine similarity as the scoring function and scale the score on 5.0 scale.
-  For training details please see [STS train Avg](src/sts_train_avg.py).
+  For training details please see [STS train Avg Sim](src/sts_train_avg.py).
   To run and obtain the STS model please run the following command from `$src` directory: 
   ```bash
-  python sts_avg train --train-file=<file> --dev-file=<file> [options]
+  python sts_train_avg train --train-file=<file> --dev-file=<file> [options]
   ```
- - 
+ 2. [BiLSTM Encoder](src/sts_bilstm.py)
+  - We run BiLSTM for each sentence and the sentence embedding is computed by concatenating all the hidden outputs from the   last time-steps for both forward and backward directions, from each layers.  The final feature vector is obtained by \[*s_a, s_b, abs(s_a \- s_b), s_a \* s_b*\], where *s_a* and *s_b* are the sentence embeddings for the sentence pair *a* and *b* and *,* denotes concatenation between those vectors.
+  For training details please see [STS train BiLSTM Sim](src/sts_train_bilstm.py).
+  To run and obtain the STS model please run the following command from `$src` directory: 
+  ```bash
+  python sts_train_bilstm train --train-file=<file> --dev-file=<file> [options]
+  ```
