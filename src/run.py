@@ -9,10 +9,10 @@ Usage:
 
 Options:
     -h --help                           show this screen.
-    --train-file=<file>                 train_corpus
-    --dev-file=<file>                   dev_corpus
+    --train-file=<file>                 train corpus
+    --dev-file=<file>                   dev corpus
     --save-generated-hyp-to=<file>      save generated hyp [default: _lg_result.txt]
-    --vocab-file=<file>                 vocab json [default: snli-vocab.pickle]
+    --vocab-file=<file>                 snli vocab dump [default: snli-vocab.pickle]
     --pretrained-embeddings=<file>      word embeddings [default: snli-embeddings.pickle]
     --max-epoch=<int>                   max epoch [default: 15]
     --patience=<int>                    wait for how many epochs to exit training [default: 5]
