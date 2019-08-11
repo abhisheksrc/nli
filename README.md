@@ -32,7 +32,7 @@ python run.py train EVAL_MODEL --train-file=<file> --dev-file=<file> [options]
 
 The model's architecture is described in [NeuralModel](src/neural_model.py), whereas the hyperparameters are set from [run.py](src/run.py).
 
-Our model is similar in implementation as the Neural Machine Translation(NMT) models, with encoder and decoder.  We use BiLSTM encoder and LSTM decoder with attention mechanism.  We use cross-entropy loss function as our training objective while predicting the hypothesis words over the training corpus.
+Our model is similar in implementation as the Neural Machine Translation(NMT) models, with encoder and decoder.  We use BiLSTM encoder and LSTM decoder with attention mechanism.  We use cross-entropy loss function as our training objective while predicting the hypothesis words over the training corpus.  The size of the SNLI training corpus for all the 3 labels is approximately **549k** and is roughly balanced for each label.
 
 ## Evaluating:
 
@@ -56,18 +56,18 @@ We train and compare performances of the following 2 models and choose the one w
   python sts_train_avg train --train-file=<file> --dev-file=<file> [options]
   ```
  2. [BiLSTM Encoder](src/sts_bilstm.py)
-  - We run BiLSTM for each sentence and the sentence embedding is computed by concatenating all the hidden outputs from the   last time-steps for both forward and backward directions, from each layers.  The final feature vector is obtained by \[*s_a; s_b; \|s_a \- s_b\|; s_a \* s_b*\], where *s_a* and *s_b* are the sentence embeddings for the sentence pair *a* and *b* and *';'* denotes concatenation between those vectors.
+  - We run BiLSTM for each sentence and the sentence embedding is computed by concatenating all the hidden outputs from the   last time-steps for both forward and backward directions, from each layers.  The final feature vector is obtained by \[*s_a; s_b;* \|*s_a* \- *s_b*\|; *s_a* \* *s_b*\], where *s_a* and *s_b* are the sentence embeddings for the sentence pair *a* and *b* and *';'* denotes concatenation between those vectors.  We then pass this feature vector to a Feed-forward layer followed by ReLu and dropout.  The output of the network is again passed to another Feed-forward layer followed by sigmoid.  Finally we scale the sigmoid output on 5.0 scale to predict the similarity score.
   For training details please see [STS train BiLSTM Sim](src/sts_train_bilstm.py).
   To run and obtain the STS model please run the following command from `$src` directory: 
   ```bash
   python sts_train_bilstm train --train-file=<file> --dev-file=<file> [options]
   ```
   
-We use mean square error (MSE) as our training objective.  The squared error is calculated between the predicted vs the actual similarity score.  We save the model which performs the best on the STS dev set.
+We use mean square error (MSE) as our training objective.  The squared error is calculated between the predicted vs the actual similarity score.  We save the model which performs the best on the STS dev set.  The size of the STS training corpus is **5.7k**
 
 To finally evaluate the performance we compare the Pearson correlation coefficient (Pearson's r) between the 2 models:
 
-| Model | Dev | Test  |
+| Model | Dev (Size = **1.5k**) | Test (Size = **1.3k**)  |
 |-|-|-|
 | [Word Averaging Cosine Similarity](src/sts_avg.py) | 61% | 50% |
 | [BiLSTM Encoder](src/sts_bilstm.py) | 74% | 74.5% |
