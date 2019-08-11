@@ -27,7 +27,7 @@ To train the neural models on the dataset run the following command from `$src` 
 python run.py train EVAL_MODEL --train-file=<file> --dev-file=<file> [options]
 ```
 
-- where `EVAL_MODEL` is described in the next [section](#evaluating:)
+- where `EVAL_MODEL` is described in the next [section](#evaluating)
 - for the format of data files please see [utils](src/utils.py)
 
 The model's architecture is described in [NeuralModel](src/neural_model.py), whereas the hyperparameters are set from [run.py](src/run.py).
