@@ -44,7 +44,7 @@ from utils import save_generated_hyps
 from vocab import Vocab
 
 from neural_model import NeuralModel
-from sts_model import NeuralSim
+from sts_bilstm import BiLSTMSim
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -89,7 +89,7 @@ def evaluate(args, data, model):
         print('generated empty hypothesis = %d' %(num_empty_gen_hyp))
 
     #compute sim score
-    sim_model = NeuralSim.load(args['EVAL_MODEL'])
+    sim_model = BiLSTMSim.load(args['EVAL_MODEL'])
     sim_model = sim_model.to(device)
     sim_model.eval()
 
@@ -146,7 +146,7 @@ def train_lg_model(args, vocab, embeddings, train_data, dev_data, label):
     total_hyp_words = 0
 
     dev_prems = [prem for (prem, hyp) in dev_data]
-    save_gen_hyp_path = '../results/' + label + args['--save-generated-hyp-to']
+    save_gen_hyp_path = label + args['--save-generated-hyp-to']
 
     hist_dev_scores = []
     patience = 0
@@ -243,7 +243,7 @@ def test(args):
         elif label == 'contradict':
             data = contradict_pairs
         
-        save_gen_hyp_path = '../results/' + label + '_test' + args['--save-generated-hyp-to']
+        save_gen_hyp_path = label + '_test' + args['--save-generated-hyp-to']
         prems = [prem for (prem, hyp) in data]
         model_path = label.upper() + '_MODEL'
         model = NeuralModel.load(args[model_path]) 
