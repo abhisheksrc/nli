@@ -65,7 +65,7 @@ We train and compare performances of the following 2 models and choose the one w
   
 We use mean square error (MSE) as our training objective.  The squared error is calculated between the predicted vs the actual similarity score.  We save the model which performs the best on the STS dev set.  The size of the STS training corpus is **5.7k**
 
-To run evalutions on a trained model (for example on the BiLSTM model) please run the following command from `$src` directory:
+To run evaluations on a trained model (for example on the BiLSTM model) please run the following command from `$src` directory:
 ```bash
 python sts_train_bilstm.py test MODEL_PATH --test-file=<file> [options]
  ```
@@ -91,7 +91,7 @@ Given that we have trained [NeuralModels](src/neural_model.py) for each label an
 ```bash
 python run.py test ENTAIL_MODEL NEUTRAL_MODEL CONTRADICT_MODEL EVAL_MODEL --test-file=<file> [options]
 ```
-We use the trained eocoder and decoder with attention mechanism with `beam-width = 5`, to generate the *hypotheses* and choose the final *hypothesis* having the maximum log-probability.
+We use the trained encoder and decoder with attention mechanism with `beam-width = 5`, to generate the *hypotheses* and choose the final *hypothesis* having the maximum log-probability.
 
 The quantitative performance of the Neural models on each label is shown here: (the numbers in the first set of columns is for the Dev set and in the second set of columns is for Test set)
 
@@ -132,7 +132,7 @@ For the STS task we construct the vocabulary by using the SNLI and STS training 
 
 To generate the `pickle` dump for SNLI + STS vocabulary please run the following command from `$src` directory:
 ```bash
-python vocab.py --snli-corpus=<file> --sts-coprpus=<file> [options]
+python vocab.py --snli-corpus=<file> --sts-corpus=<file> [options]
 ```
 
 The number of tokens in the SNLI vocab is `42,634` whereas in the SNLI + STS vocab is `48,802`.
