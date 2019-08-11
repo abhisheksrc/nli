@@ -23,7 +23,7 @@ Options:
     --num-layers=<int>                  number of layers [default: 3]
     --lr=<float>                        learning rate [default: 2e-4]
     --dropout=<float>                   dropout rate [default: 0.1]
-    --save-model-to=<file>              save trained model [default: ../models/neural_sim.pt]
+    --save-model-to=<file>              save trained model [default: neural_sim.pt]
 """
 from __future__ import division
 

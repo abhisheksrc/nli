@@ -23,7 +23,7 @@ Options:
     --num-layers=<int>                  number of layers [default: 3]
     --lr=<float>                        learning rate [default: 1e-3]
     --dropout=<float>                   dropout rate [default: 0.1]
-    --save-model-to=<file>              save trained model [default: ../models/bilstm_sim.pt]
+    --save-model-to=<file>              save trained model [default: bilstm_sim.pt]
 """
 from __future__ import division
 

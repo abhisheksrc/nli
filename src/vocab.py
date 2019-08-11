@@ -4,12 +4,12 @@
 vocab.py: Vocabulary Generation
 
 Usage:
-    vocab.py [--snli-corpus=<file> --sts-coprpus=<file>] [options]
+    vocab.py --snli-corpus=<file> --sts-coprpus=<file> [options]
 
 Options:
     -h --help                   show this screen.
-    --snli-corpus=<file>        [default: ../data/snli_train.txt]
-    --sts-corpus=<file>         [default: ../data/sts_train.txt]
+    --snli-corpus=<file>        snli corpus
+    --sts-corpus=<file>         sts corpus
     --freq-cutoff=<int>         frequency cutoff [default: 1]
     --save-vocab-to=<file>      save vocab object [default: vocab.pickle]
 """

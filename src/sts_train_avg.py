@@ -19,7 +19,7 @@ Options:
     --batch-size=<int>                  batch size [default: 32]
     --embed-size=<int>                  embedding size [default: 300]
     --lr=<float>                        learning rate [default: 1e-3]
-    --save-model-to=<file>              save trained model [default: ../models/avg_sim.pt]
+    --save-model-to=<file>              save trained model [default: avg_sim.pt]
 """
 from __future__ import division
 

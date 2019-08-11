@@ -132,7 +132,7 @@ def train_lg_model(args, vocab, embeddings, train_data, dev_data, label):
     """
     train_batch_size = int(args['--batch-size'])
     clip_grad = float(args['--clip-grad'])
-    model_save_path = '../models/' + label + args['--save-model-to']
+    model_save_path = label + args['--save-model-to']
 
     model = NeuralModel(vocab, int(args['--embed-size']), embeddings,
                         hidden_size=int(args['--hidden-size']),
