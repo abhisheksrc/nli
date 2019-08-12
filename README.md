@@ -93,7 +93,7 @@ python run.py test ENTAIL_MODEL NEUTRAL_MODEL CONTRADICT_MODEL EVAL_MODEL --test
 ```
 We use the trained encoder and decoder with attention mechanism with `beam-width = 5`, to generate the *hypotheses* and choose the final *hypothesis* having the maximum log-probability.
 
-The quantitative performance of the Neural models on each label is shown here: (the numbers in the first set of columns is for the Dev set and in the second set of columns is for Test set)
+The quantitative performance of the Neural models on each label is shown here: (the numbers in the first set of columns is for the Dev set and in the second set of columns is for the Test set)
 
 | label | Similarity | BLEU | Dev Size | Similarity| BLEU| Test Size |
 |-|-|-|-|-|-|-
