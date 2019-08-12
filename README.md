@@ -146,7 +146,7 @@ For the qualitative analysis we randomly pick 5 *premises* and show the generate
 
 ## Discussions:
 
-The Similarity and BLEU scores are just heuristics to evaluate the quality of our language generation.  However, we can relatively compare the results across each label. It is interesting that the relative order of the labels in terms of their scores (from high to low) are:
+The Similarity and BLEU scores are just heuristics to evaluate the quality of our language generation.  However, we can relatively compare the results across each label. It is interesting that the relative order of the labels in terms of their scores (from high to low) is:
 
   1. *entailment*
   2. *neutral*
