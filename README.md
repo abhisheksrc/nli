@@ -152,7 +152,7 @@ The Similarity and BLEU scores are just heuristics to evaluate the quality of ou
   2. *neutral*
   3. *contradiction*
   
-This observation is also reflected in the qualitative results.  Notice for the *premise*
+For the qualitative analysis, we only have 5 examples, but notice that the model performs quite well in generating *entailment* *hypotheses*, whereas poor in generating *neutral* *hypotheses* by getting the first 4 examples wrong, and average in the *contradiction* case by only making a mistake in the 2nd example.  
 
 It would be interesting to find the reasons for these results.
 
@@ -162,7 +162,7 @@ The dataset *hypotheses* are composed by humans and in some cases humans can dis
 |-|-|-|
 | I am going to Europe. | I will be traveling in Rome. | *entailment*, or *neutral*, or *contradiction* ?|
 
-Therefore it could either arise from the nature of the training corpus or the limitation of the Neural models in generating *neutral* and *contradictory* *hypotheses*.
+Therefore it could either arise from the nature of the training corpus or the limitation of the Neural models in generating *neutral* and *contradiction* *hypotheses*.  We also feel that it could be sometimes challenging to differentiate between *neutral* and *contradiction* examples, which could effect the models.
 
 ## Miscellaneous:
 
