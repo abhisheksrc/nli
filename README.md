@@ -4,7 +4,7 @@
 
 Natural Language Inference- Language Generation: Given a *premise* and a label (*entailment, contradiction, or neutral*), generate an *hypothesis* for that label.
 
-For example, for the *premise* **The sky is clear**  an entailing *hypothesis* can be  **It will not rain today**
+For example, for the *premise* **The sky is clear**  an entailing *hypothesis* can be  **It might not rain today**
 
 We train 3 independent neural models to generate *hypothesis* for each label.
 
