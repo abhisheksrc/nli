@@ -40,7 +40,7 @@ Our model is similar in implementation as the Neural Machine Translation(NMT) mo
 
 Coming with evaluation metrics is often challenging for language generation.  Specially for this task, we could have multiple possible *hypotheses* for a given *premise* and a label.  However the *hypotheses* provided in the dataset should have some degree of semantic similarity with the generated *hypotheses*.  We therefore train 2 separate models for Semantic Textual Similarity (STS) task on the [STS Benchmark: Main English dataset](refs/sts.bib), [STS Wiki](http://ixa2.si.ehu.eus/stswiki).
 
-The STS task is to compute similarity score for a given pair of sentences on a continuous scale of `0.0 to 5.0`.  Two very similar sentences should be given a high score, whereas dissimilar sentences should get a low score.
+The STS task is to compute meaning similarity score for a given pair of sentences on a continuous scale of `0.0 to 5.0`.  Two very similar sentences should be given a high score, whereas dissimilar sentences should get a low score.
 
 An example of sentences with a score of `5.0`, from the corpus, is: **A band is performing on a stage.**  and **A band is playing onstage.**
 
