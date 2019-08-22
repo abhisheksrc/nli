@@ -44,12 +44,12 @@ The STS task is to compute meaning similarity score for a given pair of sentence
 
 An example of sentences with a score of `5.0`, from the corpus, is: **A band is performing on a stage.**  and **A band is playing onstage.**
 
-In order to evaluate semantic similarity we come up with a feature vector using fixed size sentence embeddings and pass the feature vector to a scoring function which yields the similarity score.
+In order to evaluate semantic similarity we come up with a feature vector using fixed size sentence embeddings and pass the feature vector(s) to a scoring function which yields the similarity score.
 
 We train and compare performances of the following 2 models and choose the one which performs the best on the STS test set:
 
 1. [Word Averaging Cosine Similarity](src/sts_avg.py)
-  - This is our baseline model, where the sentence embedding is computed by averaging word embeddings and the feature vector is obtained by concatenating the embeddings.  We use cosine similarity as the scoring function and scale the score on `5.0` scale.
+  - This is our baseline model, where the sentence embedding is computed by averaging word embeddings.  We use cosine similarity as the scoring function on the input of sentence pair embeddings and scale the score on `5.0` scale.
   For training details please see [STS train Avg Sim](src/sts_train_avg.py).
   To run and obtain the STS model please run the following command from `$src` directory: 
   ```bash
